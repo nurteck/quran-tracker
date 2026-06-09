@@ -1,9 +1,7 @@
 import {
   login,
   register,
-  verifyRegister,
   forgotPassword,
-  loginWithGoogleCredential,
   loginWithTelegram,
   loginWithTelegramMiniApp,
   getDefaultRoute,
@@ -12,54 +10,6 @@ import { navigate } from '../router.js';
 import { t } from '../i18n.js';
 import { ApiError } from '../api.js';
 import { showToast } from '../toast.js';
-
-let googleReadyPromise = null;
-
-async function getGoogleClientId() {
-  const res = await fetch('/api/v1/auth/config');
-  const data = await res.json();
-  return data.googleClientId;
-}
-
-function loadGoogleScript() {
-  if (window.google?.accounts?.id) return Promise.resolve();
-  if (googleReadyPromise) return googleReadyPromise;
-  googleReadyPromise = new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = 'https://accounts.google.com/gsi/client';
-    script.async = true;
-    script.defer = true;
-    script.onload = resolve;
-    script.onerror = reject;
-    document.head.appendChild(script);
-  });
-  return googleReadyPromise;
-}
-
-async function setupGoogleButton(app) {
-  const clientId = await getGoogleClientId();
-  if (!clientId) return;
-  await loadGoogleScript();
-  window.google.accounts.id.initialize({
-    client_id: clientId,
-    ux_mode: 'popup',
-    callback: async ({ credential }) => {
-      const user = await loginWithGoogleCredential(credential);
-      navigate(getDefaultRoute(user.role));
-    },
-  });
-  const holder = app.querySelector('#google-signin-holder');
-  if (holder) {
-    app.querySelector('#google-login')?.setAttribute('hidden', '');
-    window.google.accounts.id.renderButton(holder, {
-      type: 'standard',
-      theme: 'outline',
-      size: 'large',
-      text: 'continue_with',
-      width: 320,
-    });
-  }
-}
 
 async function tryTelegramMiniAppLogin() {
   const initData = window.Telegram?.WebApp?.initData;
@@ -80,11 +30,6 @@ export function renderLoginPage(app) {
           <p class="login-subtitle" data-i18n="login.subtitle">Log in to your account</p>
         </div>
         <div class="login-card card">
-          <button type="button" id="google-login" class="btn btn--ghost btn--block google-btn">
-            <span class="google-mark">G</span>
-            <span data-i18n="login.google">Continue with Google</span>
-          </button>
-          <div id="google-signin-holder" class="google-signin-holder"></div>
           <button type="button" id="telegram-login" class="btn btn--ghost btn--block telegram-btn">
             <span class="telegram-mark">T</span>
             <span data-i18n="login.telegram">Continue with Telegram</span>
@@ -136,32 +81,6 @@ export function renderLoginPage(app) {
 
   tryTelegramMiniAppLogin().catch(() => {
     showToast(t('login.telegramMiniAppError'), 'error');
-  });
-
-  setupGoogleButton(app).catch(() => {
-    // The manual Google button below still shows the configuration error when clicked.
-  });
-
-  app.querySelector('#google-login').addEventListener('click', async () => {
-    try {
-      const clientId = await getGoogleClientId();
-      if (!clientId) {
-        showToast(t('login.googleConfigMissing'), 'error');
-        return;
-      }
-      await loadGoogleScript();
-      window.google.accounts.id.initialize({
-        client_id: clientId,
-        ux_mode: 'popup',
-        callback: async ({ credential }) => {
-          const user = await loginWithGoogleCredential(credential);
-          navigate(getDefaultRoute(user.role));
-        },
-      });
-      window.google.accounts.id.prompt();
-    } catch (error) {
-      showToast(error instanceof ApiError ? error.message : t('login.error.generic'), 'error');
-    }
   });
 
   app.querySelector('#telegram-login').addEventListener('click', async () => {
@@ -223,37 +142,17 @@ export function renderLoginPage(app) {
         </section>
       </div>`;
     app.querySelector('#back-login').addEventListener('click', () => renderLoginPage(app));
-    let pendingEmail = '';
     app.querySelector('#register-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const err = app.querySelector('#register-error');
       err.hidden = true;
       try {
-        pendingEmail = e.target.username.value.trim();
-        const result = await register(e.target.fullName.value.trim(), pendingEmail, e.target.password.value);
-        app.querySelector('.login-card').innerHTML = `
-          <form id="verify-form" class="login-form" novalidate>
-            <p class="text-muted">${t('register.codeSent')}</p>
-            ${result.devCode ? `<p class="dev-code">${t('register.devCode')}: <strong>${result.devCode}</strong></p>` : ''}
-            <div class="form-field">
-              <label for="verifyCode">${t('register.code')}</label>
-              <input id="verifyCode" name="code" inputmode="numeric" maxlength="4" required />
-            </div>
-            <p id="verify-error" class="form-error" hidden></p>
-            <button class="btn btn--primary btn--block">${t('register.verify')}</button>
-          </form>`;
-        app.querySelector('#verify-form').addEventListener('submit', async (verifyEvent) => {
-          verifyEvent.preventDefault();
-          const verifyErr = app.querySelector('#verify-error');
-          verifyErr.hidden = true;
-          try {
-            const user = await verifyRegister(pendingEmail, verifyEvent.target.code.value.trim());
-            navigate(getDefaultRoute(user.role));
-          } catch (verifyError) {
-            verifyErr.textContent = verifyError instanceof ApiError ? verifyError.message : t('common.error');
-            verifyErr.hidden = false;
-          }
-        });
+        const user = await register(
+          e.target.fullName.value.trim(),
+          e.target.username.value.trim(),
+          e.target.password.value
+        );
+        navigate(getDefaultRoute(user.role));
       } catch (error) {
         err.textContent = error instanceof ApiError ? error.message : t('common.error');
         err.hidden = false;

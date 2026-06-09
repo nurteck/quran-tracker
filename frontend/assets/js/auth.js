@@ -30,25 +30,9 @@ export async function login(username, password) {
 }
 
 export async function register(fullName, username, password) {
-  return apiFetch('/auth/register', {
+  const data = await apiFetch('/auth/register', {
     method: 'POST',
     body: JSON.stringify({ fullName, username, password }),
-  });
-}
-
-export async function verifyRegister(username, code) {
-  const data = await apiFetch('/auth/register/verify', {
-    method: 'POST',
-    body: JSON.stringify({ username, code }),
-  });
-  currentUser = data.user;
-  return currentUser;
-}
-
-export async function loginWithGoogleCredential(credential) {
-  const data = await apiFetch('/auth/google', {
-    method: 'POST',
-    body: JSON.stringify({ credential }),
   });
   currentUser = data.user;
   return currentUser;
@@ -68,12 +52,6 @@ export async function loginWithTelegramMiniApp(initData) {
     method: 'POST',
     body: JSON.stringify({ initData }),
   });
-  currentUser = data.user;
-  return currentUser;
-}
-
-export async function loginWithGoogleDemo() {
-  const data = await apiFetch('/auth/google-demo', { method: 'POST' });
   currentUser = data.user;
   return currentUser;
 }

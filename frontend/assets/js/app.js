@@ -20,6 +20,10 @@ import {
 } from './pages/features.js';
 
 async function bootstrap() {
+  if (window.location.pathname === '/telegram') {
+    window.history.replaceState(null, '', '/#/login');
+  }
+
   registerRoute('/login', renderLoginPage, { public: true });
   registerRoute('/admin', renderAdminDashboard, { roles: ['admin'] });
   registerRoute('/admin/users', renderAdminUsers, { roles: ['admin'] });

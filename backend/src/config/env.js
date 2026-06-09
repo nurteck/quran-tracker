@@ -25,7 +25,6 @@ export const env = {
   adminPassword: process.env.ADMIN_PASSWORD || 'admin123',
   cookieSecure: process.env.COOKIE_SECURE === 'true',
   corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:3000',
-  googleClientId: process.env.GOOGLE_CLIENT_ID || '',
   telegramBotUsername: process.env.TELEGRAM_BOT_USERNAME || '',
   telegramBotToken: process.env.TELEGRAM_BOT_TOKEN || '',
 };

@@ -27,9 +27,6 @@ Use your Render site URL after it is created.
 Example:
 https://quran-tracker.onrender.com
 
-GOOGLE_CLIENT_ID
-Paste your Google OAuth Web Client ID.
-
 TELEGRAM_BOT_USERNAME
 Paste bot username without @.
 
@@ -45,14 +42,6 @@ Open BotFather -> your bot -> Mini App / Web App settings.
 Set URL to your Render URL:
 https://quran-tracker.onrender.com
 
-8) Google Login:
-Open Google Cloud Console -> OAuth Client.
-Add your Render URL to:
-Authorized JavaScript origins
-
-Example:
-https://quran-tracker.onrender.com
-
-9) Important:
+8) Important:
 Free Render web services can sleep after inactivity.
 The first open after sleep can take some time.

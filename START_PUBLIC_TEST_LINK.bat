@@ -34,7 +34,6 @@ echo https://something.trycloudflare.com
 echo.
 echo Use it in:
 echo - Telegram BotFather Mini App URL
-echo - Google Console Authorized JavaScript origins
 echo.
 tools\cloudflared.exe tunnel --url http://localhost:80
 pause
