@@ -7,37 +7,12 @@ import { validate } from '../middleware/validate.js';
 import * as authService from '../services/auth.service.js';
 import * as usersService from '../services/users.service.js';
 import * as usersRepo from '../repositories/users.repo.js';
-import { pool } from '../config/db.js';
-import { hashPassword } from '../utils/password.js';
 import { parseDurationToMs } from '../utils/jwt.js';
 
 const router = Router();
 
-function normalizeHandle(value) {
-  return String(value || '')
-    .trim()
-    .replace(/^@+/, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9_]/g, '_')
-    .replace(/_+/g, '_')
-    .replace(/^_+|_+$/g, '')
-    .slice(0, 40);
-}
-
-async function getAvailableHandle(preferred) {
-  const base = normalizeHandle(preferred) || `user_${Math.random().toString(36).slice(2, 8)}`;
-  let candidate = base;
-  let suffix = 1;
-  while (await usersRepo.findByHandle(candidate)) {
-    const suffixText = `_${suffix++}`;
-    candidate = `${base.slice(0, 40 - suffixText.length)}${suffixText}`;
-  }
-  return candidate;
-}
-
 router.get('/config', (_req, res) => {
   res.json({
-    googleClientId: env.googleClientId,
     telegramBotUsername: env.telegramBotUsername,
   });
 });
@@ -151,128 +126,17 @@ router.post(
       if (existing) {
         return res.status(409).json({ error: { code: 'CONFLICT', message: 'Username already taken' } });
       }
-      const code = String(Math.floor(1000 + Math.random() * 9000));
-      const passwordHash = await hashPassword(password);
-      await pool.query('DELETE FROM email_verifications WHERE username = $1', [username]);
-      await pool.query(
-        `INSERT INTO email_verifications (username, full_name, password_hash, code, expires_at)
-         VALUES ($1, $2, $3, $4, NOW() + INTERVAL '10 minutes')`,
-        [username, fullName, passwordHash, code]
-      );
-      console.log(`Verification code for ${username}: ${code}`);
-      res.status(202).json({
-        ok: true,
-        message: 'Verification code sent',
-        devCode: env.nodeEnv === 'development' ? code : undefined,
-      });
-    } catch (err) {
-      next(err);
-    }
-  }
-);
-
-router.post(
-  '/register/verify',
-  body('username').trim().notEmpty().withMessage('username is required'),
-  body('code').isLength({ min: 4, max: 4 }).withMessage('code must be 4 digits'),
-  validate,
-  async (req, res, next) => {
-    try {
-      const { username, code } = req.body;
-      const { rows } = await pool.query(
-        `SELECT * FROM email_verifications
-         WHERE username = $1 AND code = $2 AND expires_at > NOW()
-         ORDER BY created_at DESC
-         LIMIT 1`,
-        [username, code]
-      );
-      const verification = rows[0];
-      if (!verification) {
-        return res.status(400).json({ error: { code: 'INVALID_CODE', message: 'Invalid or expired code' } });
-      }
-      const user = await usersRepo.create({
-        username: verification.username,
-        handle: await getAvailableHandle(verification.username.split('@')[0]),
-        passwordHash: verification.password_hash,
-        fullName: verification.full_name,
-        displayName: verification.full_name,
-        role: 'student',
-        emailVerified: true,
-      });
-      await pool.query('DELETE FROM email_verifications WHERE username = $1', [username]);
-      const session = await authService.createSessionForUser(user);
-      setAuthCookies(res, session.accessToken, session.refreshToken, session.refreshExpiresAt);
-      res.status(201).json({ user: session.user });
-    } catch (err) {
-      next(err);
-    }
-  }
-);
-
-router.post('/google-demo', async (_req, res, next) => {
-  try {
-    const username = 'google.student@example.com';
-    const password = 'google-demo-password';
-    const existing = await usersRepo.findByUsername(username);
-    if (!existing) {
-      await usersService.createUser({
-        fullName: 'Google Student',
-        displayName: 'Google Student',
+      const user = await usersService.createUser({
+        fullName,
+        displayName: fullName,
         username,
         password,
         role: 'student',
+        emailVerified: true,
       });
-    }
-    const session = await authService.login(username, password);
-    setAuthCookies(res, session.accessToken, session.refreshToken, session.refreshExpiresAt);
-    res.json({ user: session.user });
-  } catch (err) {
-    next(err);
-  }
-});
-
-router.post(
-  '/google',
-  body('credential').trim().notEmpty().withMessage('credential is required'),
-  validate,
-  async (req, res, next) => {
-    try {
-      if (!env.googleClientId) {
-        return res.status(400).json({
-          error: { code: 'GOOGLE_NOT_CONFIGURED', message: 'Google Sign-In is not configured' },
-        });
-      }
-      const tokenRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(req.body.credential)}`);
-      const profile = await tokenRes.json();
-      if (!tokenRes.ok || profile.aud !== env.googleClientId || !profile.email) {
-        return res.status(401).json({ error: { code: 'INVALID_GOOGLE_TOKEN', message: 'Invalid Google token' } });
-      }
-
-      let user = await usersRepo.findByUsername(profile.email);
-      if (!user) {
-        user = await usersService.createUser({
-          fullName: profile.name || profile.email,
-          displayName: profile.name || profile.email,
-          username: profile.email,
-          password: crypto.randomUUID(),
-          role: 'student',
-          avatar: profile.picture,
-          emailVerified: profile.email_verified === 'true',
-        });
-        user = await usersRepo.findByUsername(profile.email);
-      } else {
-        await usersService.updateUser(user.id, {
-          fullName: profile.name || user.full_name,
-          displayName: profile.name || user.display_name,
-          avatar: profile.picture || user.avatar,
-          emailVerified: profile.email_verified === 'true',
-        });
-        user = await usersRepo.findByUsername(profile.email);
-      }
-
       const session = await authService.createSessionForUser(user);
       setAuthCookies(res, session.accessToken, session.refreshToken, session.refreshExpiresAt);
-      res.json({ user: session.user });
+      res.status(201).json({ user: session.user });
     } catch (err) {
       next(err);
     }

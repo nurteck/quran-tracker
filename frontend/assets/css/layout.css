@@ -337,22 +337,6 @@
   font-weight: var(--font-weight-medium);
 }
 
-.google-btn {
-  min-height: 48px;
-  margin-bottom: var(--space-3);
-}
-
-.google-mark {
-  color: #4285f4;
-  font-weight: var(--font-weight-bold);
-}
-
-.google-signin-holder {
-  display: flex;
-  justify-content: center;
-  margin-bottom: var(--space-3);
-}
-
 .telegram-btn {
   min-height: 48px;
 }
