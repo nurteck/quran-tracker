@@ -41,6 +41,16 @@ quran-tracker/
 - **Timezone**: `Asia/Bishkek` (configured via `TZ`)
 - **Frontend**: hash-based routing (`#/login`, `#/admin`, etc.)
 
+## Render deployment
+
+This repository includes `render.yaml` for Render Blueprint deployment.
+
+1. Push this repository to GitHub.
+2. In Render, choose **New +** -> **Blueprint**.
+3. Select this repository.
+4. Fill the required environment variables shown in `RENDER_DEPLOY_GUIDE.txt`.
+5. Use the generated HTTPS Render URL for Telegram Mini App and Google Sign-In.
+
 ### Local backend (without Docker)
 
 ```bash
