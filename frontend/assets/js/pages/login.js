@@ -11,6 +11,8 @@ import { t } from '../i18n.js';
 import { ApiError } from '../api.js';
 import { showToast } from '../toast.js';
 
+const TELEGRAM_MINI_APP_PATH = 'quran';
+
 function isTelegramMiniApp() {
   return Boolean(window.Telegram?.WebApp?.platform);
 }
@@ -40,18 +42,33 @@ async function mountTelegramWidget(holder, botUsername) {
   holder.appendChild(script);
 }
 
-async function tryTelegramMiniAppLogin(statusEl) {
+async function tryTelegramMiniAppLogin(statusEl, button) {
   const webApp = window.Telegram?.WebApp;
   const initData = webApp?.initData;
   if (!initData) return false;
 
+  if (button) button.disabled = true;
   if (statusEl) statusEl.textContent = t('login.telegramSigningIn');
+
   webApp.ready();
   webApp.expand?.();
 
   const user = await loginWithTelegramMiniApp(initData);
   navigate(getDefaultRoute(user.role));
   return true;
+}
+
+function openTelegramMiniApp(botUsername) {
+  if (!botUsername) {
+    showToast(t('login.telegramConfigMissing'), 'error');
+    return;
+  }
+  const url = `https://t.me/${botUsername}/${TELEGRAM_MINI_APP_PATH}`;
+  if (isTelegramMiniApp()) {
+    window.Telegram.WebApp.openTelegramLink?.(url) || (window.location.href = url);
+    return;
+  }
+  window.open(url, '_blank', 'noopener,noreferrer');
 }
 
 export function renderLoginPage(app) {
@@ -66,9 +83,14 @@ export function renderLoginPage(app) {
           <p class="login-subtitle" data-i18n="login.subtitle">Log in to your account</p>
         </div>
         <div class="login-card card">
-          ${inMiniApp ? `<p class="telegram-status" id="telegram-status">${t('login.telegramSigningIn')}</p>` : `
+          <div class="telegram-login-block">
+            <button type="button" id="telegram-login-btn" class="btn btn--telegram btn--block">
+              <span class="telegram-mark" aria-hidden="true">✈</span>
+              <span data-i18n="login.telegram">Continue with Telegram</span>
+            </button>
+            <p class="telegram-status" id="telegram-status"${inMiniApp ? '' : ' hidden'}>${inMiniApp ? t('login.telegramSigningIn') : ''}</p>
             <div id="telegram-widget-slot" class="telegram-widget-holder" aria-live="polite"></div>
-          `}
+          </div>
           <div class="auth-divider"><span data-i18n="login.or">OR</span></div>
           <form id="login-form" class="login-form" novalidate>
             <div class="form-field">
@@ -114,34 +136,67 @@ export function renderLoginPage(app) {
   const errorEl = app.querySelector('#login-error');
   const submitBtn = form.querySelector('button[type="submit"]');
   const statusEl = app.querySelector('#telegram-status');
+  const telegramBtn = app.querySelector('#telegram-login-btn');
+  let botUsername = '';
 
-  if (inMiniApp) {
-    tryTelegramMiniAppLogin(statusEl).catch((error) => {
-      console.error('Telegram Mini App login failed:', error);
+  fetch('/api/v1/auth/config')
+    .then((res) => res.json())
+    .then((config) => {
+      botUsername = config.telegramBotUsername || '';
+      if (!botUsername) {
+        if (statusEl) {
+          statusEl.hidden = false;
+          statusEl.textContent = t('login.telegramConfigMissing');
+        }
+        return;
+      }
+      if (!inMiniApp) {
+        mountTelegramWidget(app.querySelector('#telegram-widget-slot'), botUsername);
+      }
+    })
+    .catch(() => {
+      showToast(t('login.error.generic'), 'error');
+    });
+
+  telegramBtn.addEventListener('click', async () => {
+    try {
+      if (inMiniApp) {
+        if (statusEl) {
+          statusEl.hidden = false;
+          statusEl.textContent = t('login.telegramSigningIn');
+        }
+        await tryTelegramMiniAppLogin(statusEl, telegramBtn);
+        return;
+      }
+      openTelegramMiniApp(botUsername);
+    } catch (error) {
+      console.error('Telegram login failed:', error);
       if (statusEl) {
+        statusEl.hidden = false;
         statusEl.textContent = t('login.telegramMiniAppFallback');
       }
       showToast(
         error instanceof ApiError ? error.message : t('login.telegramMiniAppError'),
         'error'
       );
+    } finally {
+      telegramBtn.disabled = false;
+    }
+  });
+
+  if (inMiniApp) {
+    tryTelegramMiniAppLogin(statusEl, telegramBtn).catch((error) => {
+      console.error('Telegram Mini App login failed:', error);
+      if (statusEl) {
+        statusEl.hidden = false;
+        statusEl.textContent = t('login.telegramMiniAppFallback');
+      }
+      showToast(
+        error instanceof ApiError ? error.message : t('login.telegramMiniAppError'),
+        'error'
+      );
+      telegramBtn.disabled = false;
     });
-  } else {
-    fetch('/api/v1/auth/config')
-      .then((res) => res.json())
-      .then((config) => {
-        if (!config.telegramBotUsername) {
-          const slot = app.querySelector('#telegram-widget-slot');
-          if (slot) {
-            slot.innerHTML = `<p class="telegram-status">${t('login.telegramConfigMissing')}</p>`;
-          }
-          return;
-        }
-        return mountTelegramWidget(app.querySelector('#telegram-widget-slot'), config.telegramBotUsername);
-      })
-      .catch(() => {
-        showToast(t('login.error.generic'), 'error');
-      });
   }
 
   app.querySelector('#register-link').addEventListener('click', () => {

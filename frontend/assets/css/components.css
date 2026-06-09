@@ -60,6 +60,7 @@
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: var(--space-6);
+  color: var(--text);
 }
 
 .form-field {
@@ -80,6 +81,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background-color: var(--bg-elevated);
+  color: var(--text);
   transition: border-color var(--transition-fast);
 }
 
@@ -88,6 +90,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background-color: var(--bg-elevated);
+  color: var(--text);
 }
 
 .form-field input:focus,
@@ -161,6 +164,10 @@
   line-height: 1;
 }
 
+.stat-card {
+  color: var(--text);
+}
+
 .stat-card__value {
   font-size: var(--font-size-3xl);
   font-weight: var(--font-weight-bold);
@@ -193,6 +200,7 @@
   padding: var(--space-3) var(--space-4);
   text-align: left;
   border-bottom: 1px solid var(--border);
+  color: var(--text);
 }
 
 .data-table th {
@@ -315,4 +323,9 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--bg-elevated);
+  color: var(--text);
+}
+
+.filter-group {
+  color: var(--text);
 }
