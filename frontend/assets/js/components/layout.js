@@ -1,9 +1,28 @@
 import { renderSidebar, renderBottomNav } from './sidebar.js';
 import { logout, getUser, setUser } from '../auth.js';
-import { navigate, renderRoute } from '../router.js';
-import { loadLocale, getLang, t } from '../i18n.js';
+import { navigate } from '../router.js';
+import { loadLocale, getLang, t, applyTranslations } from '../i18n.js';
 import { applyTheme } from '../theme.js';
 import { apiFetch } from '../api.js';
+
+export function patchAppContent(app, content) {
+  const main = app.querySelector('.app-shell .app-content');
+  if (!main) return false;
+  main.innerHTML = content;
+  return true;
+}
+
+export function updateSidebarActive(app, activePath) {
+  const path = activePath.startsWith('/') ? activePath : `/${activePath}`;
+  app.querySelectorAll('.sidebar__link, .bottom-nav__link').forEach((link) => {
+    const href = link.getAttribute('href') || '';
+    const linkPath = href.replace('#', '');
+    link.classList.toggle(
+      link.classList.contains('sidebar__link') ? 'sidebar__link--active' : 'bottom-nav__link--active',
+      linkPath === path
+    );
+  });
+}
 
 export function renderAppLayout({ title, titleKey, activePath, content }) {
   const path = activePath.startsWith('/') ? activePath : `/${activePath}`;
@@ -50,6 +69,7 @@ function bindLayoutControls(app) {
   app.querySelector('#language-switcher')?.addEventListener('change', async (e) => {
     const language = e.target.value;
     await loadLocale(language);
+    applyTranslations(app);
     const user = getUser();
     if (user) {
       try {
@@ -62,12 +82,15 @@ function bindLayoutControls(app) {
         // Local selection still works if profile save fails.
       }
     }
-    await renderRoute();
   });
 
   app.querySelector('#theme-toggle')?.addEventListener('click', async () => {
     const next = document.documentElement.classList.contains('dark') ? 'light' : 'dark';
     applyTheme(next);
+    const toggle = app.querySelector('#theme-toggle');
+    if (toggle) {
+      toggle.textContent = next === 'dark' ? t('theme.light') : t('theme.dark');
+    }
     const user = getUser();
     if (user) {
       try {
@@ -80,6 +103,5 @@ function bindLayoutControls(app) {
         // Theme is persisted locally even when profile save fails.
       }
     }
-    window.dispatchEvent(new HashChangeEvent('hashchange'));
   });
 }

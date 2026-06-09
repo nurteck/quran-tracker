@@ -32,6 +32,8 @@
   "login.telegram": "Telegram менен улантуу",
   "login.telegramConfigMissing": "Telegram кирүү азырынча жөндөлө элек. Telegram Bot Username жана Token керек.",
   "login.telegramMiniAppError": "Telegram Mini App аркылуу кирүү ишке ашкан жок. Бот жөндөөлөрүн текшериңиз.",
+  "login.telegramSigningIn": "Telegram аркылуу кирүү…",
+  "login.telegramMiniAppFallback": "Автоматтык кирүү ишке ашкан жок. Төмөндө логин жана сырсөз менен кириңиз.",
   "login.or": "ЖЕ",
   "login.forgot": "Сырсөздү унуттуңузбу?",
   "login.noAccount": "Аккаунтуңуз жокпу?",

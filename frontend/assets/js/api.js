@@ -1,4 +1,4 @@
-import { getAccessToken } from './session-token.js';
+import { getAccessToken, storeAccessToken } from './session-token.js';
 
 const API_BASE = '/api/v1';
 
@@ -66,8 +66,14 @@ async function tryRefresh() {
     refreshPromise = fetch(`${API_BASE}/auth/refresh`, {
       method: 'POST',
       credentials: 'include',
+      headers: buildHeaders(),
     })
-      .then((res) => res.ok)
+      .then(async (res) => {
+        if (!res.ok) return false;
+        const data = await res.json().catch(() => null);
+        if (data?.accessToken) storeAccessToken(data.accessToken);
+        return true;
+      })
       .catch(() => false)
       .finally(() => {
         refreshPromise = null;

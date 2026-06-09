@@ -109,7 +109,7 @@ router.post(
       const { username, password } = req.body;
       const session = await authService.login(username, password);
       setAuthCookies(res, session.accessToken, session.refreshToken, session.refreshExpiresAt);
-      res.json({ user: session.user });
+      res.json({ user: session.user, accessToken: session.accessToken });
     } catch (err) {
       next(err);
     }
@@ -139,7 +139,7 @@ router.post(
       });
       const session = await authService.createSessionForUser(user);
       setAuthCookies(res, session.accessToken, session.refreshToken, session.refreshExpiresAt);
-      res.status(201).json({ user: session.user });
+      res.status(201).json({ user: session.user, accessToken: session.accessToken });
     } catch (err) {
       next(err);
     }
@@ -201,7 +201,7 @@ router.post('/refresh', async (req, res, next) => {
     }
     const session = await authService.refreshSession(refreshToken);
     setAuthCookies(res, session.accessToken, session.refreshToken, session.refreshExpiresAt);
-    res.json({ user: session.user });
+    res.json({ user: session.user, accessToken: session.accessToken });
   } catch (err) {
     next(err);
   }

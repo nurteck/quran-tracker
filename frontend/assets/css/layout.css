@@ -347,7 +347,22 @@
 }
 
 .telegram-widget-holder {
-  margin-top: var(--space-3);
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.telegram-widget-holder iframe {
+  width: 100% !important;
+  min-height: 48px;
+}
+
+.telegram-status {
+  margin: 0 0 var(--space-4);
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
 }
 
 .feature-card {

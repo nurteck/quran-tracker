@@ -32,6 +32,8 @@
   "login.telegram": "Продолжить с Telegram",
   "login.telegramConfigMissing": "Telegram-вход ещё не настроен. Нужны Telegram Bot Username и Token.",
   "login.telegramMiniAppError": "Не удалось войти через Telegram Mini App. Проверьте настройки бота.",
+  "login.telegramSigningIn": "Вход через Telegram…",
+  "login.telegramMiniAppFallback": "Автовход не сработал. Войдите логином и паролем ниже.",
   "login.or": "ИЛИ",
   "login.forgot": "Забыли пароль?",
   "login.noAccount": "Нет аккаунта?",

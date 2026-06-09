@@ -22,6 +22,11 @@ body {
   min-height: 100vh;
 }
 
+#app {
+  min-height: 100vh;
+  background-color: var(--bg);
+}
+
 h1, h2, h3, h4, h5, h6 {
   margin: 0 0 var(--space-4);
   font-weight: var(--font-weight-semibold);

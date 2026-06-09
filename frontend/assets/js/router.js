@@ -68,7 +68,6 @@ export async function renderRoute() {
     return;
   }
 
-  app.innerHTML = '';
   try {
     await route.handler(app, params);
     applyTranslations(app);

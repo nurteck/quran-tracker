@@ -1,7 +1,8 @@
-import { initSession } from './auth.js';
+import { initSession, getDefaultRoute } from './auth.js';
+import { getAccessToken } from './session-token.js';
 import { initI18n } from './i18n.js';
 import { initTheme } from './theme.js';
-import { registerRoute, startRouter } from './router.js';
+import { registerRoute, startRouter, navigate } from './router.js';
 import { renderLoginPage } from './pages/login.js';
 import { renderAdminDashboard } from './pages/admin-dashboard.js';
 import { renderAdminUsers } from './pages/admin-users.js';
@@ -24,6 +25,8 @@ async function bootstrap() {
     window.history.replaceState(null, '', '/#/login');
   }
 
+  initTheme(localStorage.getItem('theme') || 'dark');
+
   registerRoute('/login', renderLoginPage, { public: true });
   registerRoute('/admin', renderAdminDashboard, { roles: ['admin'] });
   registerRoute('/admin/users', renderAdminUsers, { roles: ['admin'] });
@@ -39,12 +42,30 @@ async function bootstrap() {
   registerRoute('/export', renderExportPage, { roles: ['admin', 'teacher'] });
   registerRoute('/profile', renderProfilePage, { roles: ['admin', 'teacher', 'student'] });
 
-  const user = await initSession();
-  await initI18n(user?.language);
-  initTheme(user?.theme);
+  await initI18n();
 
-  if (!window.location.hash) {
-    window.location.hash = user ? `#/${user.role === 'admin' ? 'admin' : user.role}` : '#/login';
+  const hash = window.location.hash;
+  if (!hash || hash === '#/' || hash === '#') {
+    window.location.hash = '#/login';
+  }
+
+  if (getAccessToken()) {
+    const user = await initSession();
+    if (user?.language) await initI18n(user.language);
+    if (user?.theme) initTheme(user.theme);
+    if (user && (hash === '#/login' || !hash || hash === '#/' || hash === '#')) {
+      navigate(getDefaultRoute(user.role));
+    }
+  } else {
+    initSession().then(async (user) => {
+      if (!user) return;
+      if (user.language) await initI18n(user.language);
+      if (user.theme) initTheme(user.theme);
+      const current = window.location.hash;
+      if (current === '#/login' || !current || current === '#/' || current === '#') {
+        navigate(getDefaultRoute(user.role));
+      }
+    });
   }
 
   await startRouter();
@@ -53,5 +74,5 @@ async function bootstrap() {
 bootstrap().catch((err) => {
   console.error('App bootstrap failed:', err);
   document.getElementById('app').innerHTML =
-    '<main class="app-content"><p>Failed to load application.</p></main>';
+    '<main class="app-content login-page"><div class="card"><p>Failed to load application.</p><a href="#/login">Login</a></div></main>';
 });

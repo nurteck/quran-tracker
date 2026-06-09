@@ -1,6 +1,6 @@
 import { apiFetch } from '../api.js';
 import { getUser, setUser } from '../auth.js';
-import { mountAppLayout } from '../components/layout.js';
+import { mountAppLayout, patchAppContent } from '../components/layout.js';
 import { renderDataTable } from '../components/data-table.js';
 import { showToast } from '../toast.js';
 import { t } from '../i18n.js';
@@ -136,45 +136,61 @@ export async function renderRankingPage(app) {
   });
 }
 
-export async function renderAnalyticsPage(app, scopeOrParams = 'me') {
-  const scope = typeof scopeOrParams === 'string' ? scopeOrParams : 'me';
-  const { analytics, summary } = await apiFetch(`/analytics?scope=${scope}`);
+function renderAnalyticsContent(scope, analytics, summary) {
   const maxActivity = Math.max(...analytics.map((day) => Number(day.pages || 0) + Number(day.repetitions || 0)), 1);
+  return `
+    <div class="tabs">
+      <button type="button" class="tab${scope === 'me' ? ' tab--active' : ''}" data-scope="me">${t('analytics.me')}</button>
+      <button type="button" class="tab${scope === 'all' ? ' tab--active' : ''}" data-scope="all">${t('analytics.all')}</button>
+    </div>
+    <div class="stats-grid">
+      <article class="stat-card"><span>${t('analytics.totalPages')}</span><strong>${summary.pages}</strong></article>
+      <article class="stat-card"><span>${t('analytics.totalRepetitions')}</span><strong>${summary.repetitions}</strong></article>
+      <article class="stat-card"><span>${t('analytics.active')}</span><strong>${summary.activeStudents}</strong></article>
+      <article class="stat-card"><span>${t('analytics.bestDay')}</span><strong>${summary.bestDay?.day?.slice?.(0, 10) || '—'}</strong></article>
+    </div>
+    <section class="card feature-card">
+      <h2>${t('analytics.week')}</h2>
+      <div class="analytics-list">
+        ${analytics.map((day) => {
+          const activity = Number(day.pages || 0) + Number(day.repetitions || 0);
+          const width = Math.round((activity / maxActivity) * 100);
+          return `
+            <div class="analytics-row">
+              <strong>${day.day?.slice?.(0, 10) || day.day}</strong>
+              <div class="analytics-row__bar"><span style="width: ${width}%"></span></div>
+              <span>${t('ranking.pages')}: ${day.pages}</span>
+              <span>${t('ranking.repetitions')}: ${day.repetitions}</span>
+            </div>`;
+        }).join('')}
+      </div>
+    </section>
+  `;
+}
+
+function bindAnalyticsTabs(app) {
+  app.querySelectorAll('[data-scope]').forEach((btn) => {
+    btn.addEventListener('click', () => renderAnalyticsPage(app, btn.dataset.scope, { soft: true }));
+  });
+}
+
+export async function renderAnalyticsPage(app, scopeOrParams = 'me', options = {}) {
+  const scope = typeof scopeOrParams === 'string' ? scopeOrParams : 'me';
+  const soft = options.soft === true;
+  const { analytics, summary } = await apiFetch(`/analytics?scope=${scope}`);
+  const content = renderAnalyticsContent(scope, analytics, summary);
+
+  if (soft && patchAppContent(app, content)) {
+    bindAnalyticsTabs(app);
+    return;
+  }
+
   mountAppLayout(app, {
     title: t('analytics.title'),
     activePath: '/analytics',
-    content: `
-      <div class="tabs">
-        <button class="tab${scope === 'me' ? ' tab--active' : ''}" data-scope="me">${t('analytics.me')}</button>
-        <button class="tab${scope === 'all' ? ' tab--active' : ''}" data-scope="all">${t('analytics.all')}</button>
-      </div>
-      <div class="stats-grid">
-        <article class="stat-card"><span>${t('analytics.totalPages')}</span><strong>${summary.pages}</strong></article>
-        <article class="stat-card"><span>${t('analytics.totalRepetitions')}</span><strong>${summary.repetitions}</strong></article>
-        <article class="stat-card"><span>${t('analytics.active')}</span><strong>${summary.activeStudents}</strong></article>
-        <article class="stat-card"><span>${t('analytics.bestDay')}</span><strong>${summary.bestDay?.day?.slice?.(0, 10) || '—'}</strong></article>
-      </div>
-      <section class="card feature-card">
-        <h2>${t('analytics.week')}</h2>
-        <div class="analytics-list">
-          ${analytics.map((day) => {
-            const activity = Number(day.pages || 0) + Number(day.repetitions || 0);
-            const width = Math.round((activity / maxActivity) * 100);
-            return `
-              <div class="analytics-row">
-                <strong>${day.day?.slice?.(0, 10) || day.day}</strong>
-                <div class="analytics-row__bar"><span style="width: ${width}%"></span></div>
-                <span>${t('ranking.pages')}: ${day.pages}</span>
-                <span>${t('ranking.repetitions')}: ${day.repetitions}</span>
-              </div>`;
-          }).join('')}
-        </div>
-      </section>
-    `,
+    content,
   });
-  app.querySelectorAll('[data-scope]').forEach((btn) => {
-    btn.addEventListener('click', () => renderAnalyticsPage(app, btn.dataset.scope));
-  });
+  bindAnalyticsTabs(app);
 }
 
 export async function renderGoalsPage(app) {
@@ -256,8 +272,52 @@ export async function renderGoalsPage(app) {
   });
 }
 
-export async function renderChatPage(app, selectedGroupIdOrParams = null) {
+function renderChatContent(groups, messages, error, activeGroupId) {
+  return `
+    <section class="card chat-box">
+      <div class="page-toolbar">
+        <label class="filter-group">${t('chat.group')}
+          <select id="chat-group">
+            ${groups.map((group) => `<option value="${group.id}"${group.id === activeGroupId ? ' selected' : ''}>${group.name}</option>`).join('')}
+          </select>
+        </label>
+      </div>
+      <div class="chat-list">
+        ${error ? `<p class="form-error">${error}</p>` : messages
+          .map(
+            (msg) => `
+              <p class="chat-message">
+                ${avatarHtml(msg)}
+                <span><strong>${msg.display_name || msg.full_name}</strong><br>${msg.message}</span>
+              </p>`
+          )
+          .join('') || `<p class="text-muted">${activeGroupId ? t('chat.empty') : t('chat.noGroups')}</p>`}
+      </div>
+      <form id="chat-form" class="inline-form"${activeGroupId ? '' : ' hidden'}>
+        <input name="message" placeholder="${t('chat.placeholder')}" required />
+        <button class="btn btn--primary">${t('chat.send')}</button>
+      </form>
+    </section>
+  `;
+}
+
+function bindChatPage(app, activeGroupId) {
+  app.querySelector('#chat-group')?.addEventListener('change', (e) => {
+    renderChatPage(app, e.target.value, { soft: true });
+  });
+  app.querySelector('#chat-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    await apiFetch('/chat', {
+      method: 'POST',
+      body: JSON.stringify({ groupId: activeGroupId, message: e.target.message.value.trim() }),
+    });
+    renderChatPage(app, activeGroupId, { soft: true });
+  });
+}
+
+export async function renderChatPage(app, selectedGroupIdOrParams = null, options = {}) {
   const selectedGroupId = typeof selectedGroupIdOrParams === 'string' ? selectedGroupIdOrParams : null;
+  const soft = options.soft === true;
   let groups = [];
   let messages = [];
   let error = null;
@@ -276,45 +336,19 @@ export async function renderChatPage(app, selectedGroupIdOrParams = null) {
       error = err.message || t('common.error');
     }
   }
+
+  const content = renderChatContent(groups, messages, error, activeGroupId);
+  if (soft && patchAppContent(app, content)) {
+    bindChatPage(app, activeGroupId);
+    return;
+  }
+
   mountAppLayout(app, {
     title: t('chat.title'),
     activePath: '/chat',
-    content: `
-      <section class="card chat-box">
-        <div class="page-toolbar">
-          <label class="filter-group">${t('chat.group')}
-            <select id="chat-group">
-              ${groups.map((group) => `<option value="${group.id}"${group.id === activeGroupId ? ' selected' : ''}>${group.name}</option>`).join('')}
-            </select>
-          </label>
-        </div>
-        <div class="chat-list">
-          ${error ? `<p class="form-error">${error}</p>` : messages
-            .map(
-              (msg) => `
-                <p class="chat-message">
-                  ${avatarHtml(msg)}
-                  <span><strong>${msg.display_name || msg.full_name}</strong><br>${msg.message}</span>
-                </p>`
-            )
-            .join('') || `<p class="text-muted">${activeGroupId ? t('chat.empty') : t('chat.noGroups')}</p>`}
-        </div>
-        <form id="chat-form" class="inline-form"${activeGroupId ? '' : ' hidden'}>
-          <input name="message" placeholder="${t('chat.placeholder')}" required />
-          <button class="btn btn--primary">${t('chat.send')}</button>
-        </form>
-      </section>
-    `,
+    content,
   });
-  app.querySelector('#chat-group')?.addEventListener('change', (e) => renderChatPage(app, e.target.value));
-  app.querySelector('#chat-form')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    await apiFetch('/chat', {
-      method: 'POST',
-      body: JSON.stringify({ groupId: activeGroupId, message: e.target.message.value.trim() }),
-    });
-    renderChatPage(app, activeGroupId);
-  });
+  bindChatPage(app, activeGroupId);
 }
 
 export async function renderAssistantPage(app) {
