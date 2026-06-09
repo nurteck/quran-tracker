@@ -27,7 +27,24 @@ const publicDir =
 export function createApp() {
   const app = express();
 
-  app.use(helmet({ contentSecurityPolicy: false }));
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          frameAncestors: [
+            "'self'",
+            'https://web.telegram.org',
+            'https://telegram.org',
+            'https://*.telegram.org',
+          ],
+        },
+      },
+      crossOriginEmbedderPolicy: false,
+      crossOriginResourcePolicy: false,
+      crossOriginOpenerPolicy: false,
+      xFrameOptions: false,
+    })
+  );
   app.use(cors({ origin: env.corsOrigin, credentials: true }));
   app.use(express.json({ limit: '5mb' }));
   app.use(cookieParser());
