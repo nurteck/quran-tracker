@@ -1,0 +1,47 @@
+RENDER DEPLOY GUIDE
+
+Repository:
+https://github.com/nurteck/quran-tracker
+
+1) Open Render:
+https://render.com
+
+2) Sign in with GitHub.
+
+3) Create from Blueprint:
+New + -> Blueprint
+Choose repository: nurteck/quran-tracker
+Render will read render.yaml.
+
+4) Render will create:
+- Web Service: quran-tracker
+- PostgreSQL: quran-tracker-db
+
+5) When Render asks for environment variables, fill these:
+
+ADMIN_PASSWORD
+Example: admin123
+
+CORS_ORIGIN
+Use your Render site URL after it is created.
+Example:
+https://quran-tracker.onrender.com
+
+TELEGRAM_BOT_USERNAME
+Paste bot username without @.
+
+TELEGRAM_BOT_TOKEN
+Paste bot token from BotFather.
+
+6) After deploy finishes, open the Render URL.
+Example:
+https://quran-tracker.onrender.com
+
+7) Telegram Mini App:
+Open BotFather -> your bot -> Mini App / Web App settings.
+Set URL to your Render URL:
+https://quran-tracker.onrender.com
+
+8) Important:
+Free Render web services can sleep after inactivity.
+The first open after sleep can take some time.
