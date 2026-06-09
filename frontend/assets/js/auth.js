@@ -1,6 +1,14 @@
 import { apiFetch } from './api.js';
+import { storeAccessToken, clearAccessToken } from './session-token.js';
 
 let currentUser = null;
+
+function persistSession(data) {
+  currentUser = data.user;
+  if (data.accessToken) {
+    storeAccessToken(data.accessToken);
+  }
+}
 
 export function getUser() {
   return currentUser;
@@ -25,7 +33,7 @@ export async function login(username, password) {
     method: 'POST',
     body: JSON.stringify({ username, password }),
   });
-  currentUser = data.user;
+  persistSession(data);
   return currentUser;
 }
 
@@ -34,7 +42,7 @@ export async function register(fullName, username, password) {
     method: 'POST',
     body: JSON.stringify({ fullName, username, password }),
   });
-  currentUser = data.user;
+  persistSession(data);
   return currentUser;
 }
 
@@ -43,7 +51,7 @@ export async function loginWithTelegram(payload) {
     method: 'POST',
     body: JSON.stringify(payload),
   });
-  currentUser = data.user;
+  persistSession(data);
   return currentUser;
 }
 
@@ -52,7 +60,7 @@ export async function loginWithTelegramMiniApp(initData) {
     method: 'POST',
     body: JSON.stringify({ initData }),
   });
-  currentUser = data.user;
+  persistSession(data);
   return currentUser;
 }
 
@@ -68,6 +76,7 @@ export async function logout() {
     await apiFetch('/auth/logout', { method: 'POST' });
   } finally {
     clearUser();
+    clearAccessToken();
   }
 }
 

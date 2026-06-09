@@ -39,11 +39,14 @@ function verifyTelegramMiniAppInitData(initData) {
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([key, value]) => `${key}=${value}`)
     .join('\n');
-  const secret = crypto.createHmac('sha256', 'WebAppData').update(env.telegramBotToken).digest();
+  const secret = crypto.createHmac('sha256', env.telegramBotToken).update('WebAppData').digest();
   const hmac = crypto.createHmac('sha256', secret).update(checkString).digest('hex');
   const expected = Buffer.from(hmac, 'hex');
   const received = Buffer.from(hash, 'hex');
   if (expected.length !== received.length || !crypto.timingSafeEqual(expected, received)) return null;
+
+  const authDate = Number(params.get('auth_date'));
+  if (!authDate || Date.now() / 1000 - authDate > 86400) return null;
 
   const userRaw = params.get('user');
   return userRaw ? JSON.parse(userRaw) : null;
@@ -80,13 +83,13 @@ function setAuthCookies(res, accessToken, refreshToken, refreshExpiresAt) {
   res
     .cookie('access_token', accessToken, {
       httpOnly: true,
-      sameSite: 'lax',
+      sameSite: env.cookieSecure ? 'none' : 'lax',
       secure: env.cookieSecure,
       maxAge: accessMaxAge,
     })
     .cookie('refresh_token', refreshToken, {
       httpOnly: true,
-      sameSite: 'lax',
+      sameSite: env.cookieSecure ? 'none' : 'lax',
       secure: env.cookieSecure,
       expires: refreshExpiresAt,
     });
@@ -156,7 +159,7 @@ router.post('/telegram', async (req, res, next) => {
 
     const session = await createTelegramSession(req.body);
     setAuthCookies(res, session.accessToken, session.refreshToken, session.refreshExpiresAt);
-    res.json({ user: session.user });
+    res.json({ user: session.user, accessToken: session.accessToken });
   } catch (err) {
     next(err);
   }
@@ -175,7 +178,7 @@ router.post('/telegram-miniapp', body('initData').trim().notEmpty(), validate, a
     }
     const session = await createTelegramSession(profile);
     setAuthCookies(res, session.accessToken, session.refreshToken, session.refreshExpiresAt);
-    res.json({ user: session.user });
+    res.json({ user: session.user, accessToken: session.accessToken });
   } catch (err) {
     next(err);
   }

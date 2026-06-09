@@ -79,8 +79,12 @@ export function renderLoginPage(app) {
   const errorEl = app.querySelector('#login-error');
   const submitBtn = form.querySelector('button[type="submit"]');
 
-  tryTelegramMiniAppLogin().catch(() => {
-    showToast(t('login.telegramMiniAppError'), 'error');
+  tryTelegramMiniAppLogin().catch((error) => {
+    console.error('Telegram Mini App login failed:', error);
+    showToast(
+      error instanceof ApiError ? error.message : t('login.telegramMiniAppError'),
+      'error'
+    );
   });
 
   app.querySelector('#telegram-login').addEventListener('click', async () => {

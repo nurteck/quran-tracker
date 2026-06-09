@@ -1,4 +1,18 @@
+import { getAccessToken } from './session-token.js';
+
 const API_BASE = '/api/v1';
+
+function buildHeaders(extra = {}) {
+  const headers = {
+    'Content-Type': 'application/json',
+    ...extra,
+  };
+  const token = getAccessToken();
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  return headers;
+}
 
 export class ApiError extends Error {
   constructor(status, code, message) {
@@ -26,10 +40,7 @@ async function parseResponse(res) {
 export async function apiFetch(path, options = {}) {
   const res = await fetch(`${API_BASE}${path}`, {
     credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
+    headers: buildHeaders(options.headers),
     ...options,
   });
 
@@ -38,10 +49,7 @@ export async function apiFetch(path, options = {}) {
     if (refreshed) {
       const retry = await fetch(`${API_BASE}${path}`, {
         credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          ...options.headers,
-        },
+        headers: buildHeaders(options.headers),
         ...options,
       });
       return parseResponse(retry);
