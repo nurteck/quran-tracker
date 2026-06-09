@@ -1,0 +1,23 @@
+@import url('./variables.css');
+
+/* Theme transitions applied when toggling light/dark */
+html {
+  transition: background-color var(--transition-base), color var(--transition-base);
+}
+
+body {
+  transition: background-color var(--transition-base), color var(--transition-base);
+}
+
+.card,
+.btn,
+.sidebar,
+.header,
+.modal,
+.toast {
+  transition:
+    background-color var(--transition-base),
+    border-color var(--transition-base),
+    color var(--transition-base),
+    box-shadow var(--transition-base);
+}

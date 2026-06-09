@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Quran Progress Tracker">
+  <rect width="256" height="256" rx="42" fill="#cfeedd"/>
+  <path d="M113 55c-37 7-66 38-70 76 7-5 19-8 34-7-13-24-7-51 36-69Z" fill="#14532d"/>
+  <path d="M60 141c24 2 48 12 68 32v27c-20-16-43-24-68-22v-37Z" fill="#166534"/>
+  <path d="M196 141c-24 2-48 12-68 32v27c20-16 43-24 68-22v-37Z" fill="#166534"/>
+  <path d="M109 102c18 3 32 10 44 23 12-13 26-20 44-23v38c-16 2-31 8-44 18-13-10-28-16-44-18v-38Z" fill="#166534"/>
+  <path d="M56 184c27-3 51 5 72 23 21-18 45-26 72-23v10c-27-2-50 5-69 22a5 5 0 0 1-6 0c-19-17-42-24-69-22v-10Z" fill="#14532d"/>
+  <path d="M101 96v54M205 96v54M51 156v42M205 156v42" stroke="#14532d" stroke-width="8" stroke-linecap="round"/>
+</svg>

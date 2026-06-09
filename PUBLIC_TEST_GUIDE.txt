@@ -1,0 +1,30 @@
+PUBLIC TEST GUIDE
+
+Do not open frontend/index.html directly.
+
+1) Configure keys:
+   Run CONFIGURE_LOGIN_KEYS.bat
+   Paste:
+   - GOOGLE_CLIENT_ID
+   - TELEGRAM_BOT_USERNAME without @
+   - TELEGRAM_BOT_TOKEN
+
+2) Start public HTTPS test link:
+   Run START_PUBLIC_TEST_LINK.bat
+   Wait until Cloudflare prints a link like:
+   https://something.trycloudflare.com
+
+3) Telegram Mini App:
+   Open BotFather and set your Mini App / Web App URL to the Cloudflare link.
+   When users open the Mini App inside Telegram, the site will auto-login them using Telegram initData.
+
+4) Google Sign-In:
+   In Google Cloud Console, open your OAuth Web Client and add the Cloudflare link to:
+   Authorized JavaScript origins
+
+   Example:
+   https://something.trycloudflare.com
+
+5) Important:
+   The Cloudflare test link changes each time you restart START_PUBLIC_TEST_LINK.bat.
+   For a permanent link, deploy the site to Render/Railway/VPS with a real domain.
