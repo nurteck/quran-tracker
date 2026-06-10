@@ -11,7 +11,12 @@ import { navigate } from '../router.js';
 import { t } from '../i18n.js';
 import { ApiError } from '../api.js';
 import { showToast } from '../toast.js';
-import { isTelegramMiniApp, getTelegramInitData, prepareTelegramWebApp } from '../telegram-env.js';
+import {
+  isTelegramMiniApp,
+  getTelegramInitData,
+  prepareTelegramWebApp,
+  openTelegramBot,
+} from '../telegram-env.js';
 
 async function mountTelegramWidget(holder, botUsername) {
   if (!holder || !botUsername) return;
@@ -86,6 +91,7 @@ function renderLoginForm(app, { inMiniApp = false, showTelegramButton = true } =
               <p class="telegram-status" id="telegram-status" hidden></p>
               ${inMiniApp ? '' : '<div id="telegram-widget-slot" class="telegram-widget-holder" aria-live="polite"></div>'}
               ${inMiniApp ? '' : `<p class="telegram-hint" data-i18n="login.telegramBrowserHint">${t('login.telegramBrowserHint')}</p>`}
+              ${inMiniApp ? '' : '<a id="telegram-open-bot" class="telegram-open-link" href="#" hidden></a>'}
             </div>
             <div class="auth-divider"><span data-i18n="login.or">OR</span></div>
           ` : ''}
@@ -142,16 +148,24 @@ function bindLoginForm(app, { inMiniApp = false, botUsername = '' } = {}) {
   if (telegramBtn) {
     telegramBtn.addEventListener('click', async () => {
       try {
-        if (inMiniApp) {
+        telegramBtn.disabled = true;
+        if (statusEl) {
+          statusEl.hidden = false;
+          statusEl.textContent = t('login.telegramSigningIn');
+        }
+
+        if (getTelegramInitData()) {
           await tryTelegramMiniAppLogin(statusEl, telegramBtn);
           return;
         }
-        const widgetFrame = app.querySelector('#telegram-widget-slot iframe');
-        if (widgetFrame) {
-          widgetFrame.click();
+
+        if (botUsername) {
+          if (statusEl) statusEl.textContent = t('login.telegramOpening');
+          openTelegramBot(botUsername);
           return;
         }
-        showToast(t('login.telegramBrowserHint'), 'info');
+
+        showToast(t('login.telegramConfigMissing'), 'error');
       } catch (error) {
         console.error('Telegram login failed:', error);
         if (statusEl) {
@@ -163,7 +177,7 @@ function bindLoginForm(app, { inMiniApp = false, botUsername = '' } = {}) {
           'error'
         );
       } finally {
-        if (telegramBtn) telegramBtn.disabled = false;
+        telegramBtn.disabled = false;
       }
     });
   }

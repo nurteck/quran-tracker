@@ -1,5 +1,9 @@
+const TELEGRAM_MINI_APP_PATH = 'quran';
+
 export function isTelegramMiniApp() {
-  return Boolean(window.Telegram?.WebApp?.platform);
+  const webApp = window.Telegram?.WebApp;
+  if (!webApp) return false;
+  return Boolean(webApp.initData || webApp.platform || webApp.initDataUnsafe?.user);
 }
 
 export function getTelegramInitData() {
@@ -11,4 +15,11 @@ export function prepareTelegramWebApp() {
   if (!webApp) return;
   webApp.ready();
   webApp.expand?.();
+}
+
+export function openTelegramBot(botUsername) {
+  if (!botUsername) return false;
+  const url = `https://t.me/${botUsername}/${TELEGRAM_MINI_APP_PATH}`;
+  window.location.assign(url);
+  return true;
 }
