@@ -7,14 +7,15 @@ import { validate } from '../middleware/validate.js';
 import * as authService from '../services/auth.service.js';
 import * as usersService from '../services/users.service.js';
 import * as usersRepo from '../repositories/users.repo.js';
+import { findOrCreateTelegramUser } from '../services/telegram-auth.service.js';
 import { parseDurationToMs } from '../utils/jwt.js';
-import { pool } from '../config/db.js';
 
 const router = Router();
 
 router.get('/config', (_req, res) => {
   res.json({
     telegramBotUsername: env.telegramBotUsername,
+    telegramAuthEnabled: Boolean(env.telegramBotToken),
   });
 });
 
@@ -48,40 +49,10 @@ function verifyTelegramMiniAppInitData(initData) {
   if (expected.length !== received.length || !crypto.timingSafeEqual(expected, received)) return null;
 
   const authDate = Number(params.get('auth_date'));
-  if (!authDate || Date.now() / 1000 - authDate > 86400) return null;
+  if (!authDate || Date.now() / 1000 - authDate > 604800) return null;
 
   const userRaw = params.get('user');
   return userRaw ? JSON.parse(userRaw) : null;
-}
-
-async function createTelegramSession(profile) {
-  const username = `telegram_${profile.id}`;
-  let user = await usersRepo.findByUsername(username);
-  const name = [profile.first_name, profile.last_name].filter(Boolean).join(' ') || profile.username || username;
-  if (!user) {
-    await usersService.createUser({
-      fullName: name,
-      displayName: name,
-      username,
-      handle: profile.username || username,
-      password: crypto.randomUUID(),
-      role: 'student',
-      avatar: profile.photo_url,
-      emailVerified: true,
-    });
-    user = await usersRepo.findByUsername(username);
-  } else {
-    if (!user.is_active) {
-      await pool.query('UPDATE users SET is_active = TRUE, updated_at = NOW() WHERE id = $1', [user.id]);
-      user.is_active = true;
-    }
-    await usersService.updateUser(user.id, {
-      displayName: name || user.display_name,
-      avatar: profile.photo_url || user.avatar,
-    });
-    user = await usersRepo.findByUsername(username);
-  }
-  return authService.createSessionForUser(user);
 }
 
 function setAuthCookies(res, accessToken, refreshToken, refreshExpiresAt) {
@@ -101,6 +72,15 @@ function setAuthCookies(res, accessToken, refreshToken, refreshExpiresAt) {
     });
 }
 
+function sendSession(res, session, status = 200) {
+  setAuthCookies(res, session.accessToken, session.refreshToken, session.refreshExpiresAt);
+  res.status(status).json({
+    user: session.user,
+    accessToken: session.accessToken,
+    refreshToken: session.refreshToken,
+  });
+}
+
 function clearAuthCookies(res) {
   res.clearCookie('access_token').clearCookie('refresh_token').clearCookie('token');
 }
@@ -114,8 +94,7 @@ router.post(
     try {
       const { username, password } = req.body;
       const session = await authService.login(username, password);
-      setAuthCookies(res, session.accessToken, session.refreshToken, session.refreshExpiresAt);
-      res.json({ user: session.user, accessToken: session.accessToken });
+      sendSession(res, session);
     } catch (err) {
       next(err);
     }
@@ -135,7 +114,7 @@ router.post(
       if (existing) {
         return res.status(409).json({ error: { code: 'CONFLICT', message: 'Username already taken' } });
       }
-      const user = await usersService.createUser({
+      await usersService.createUser({
         fullName,
         displayName: fullName,
         username,
@@ -143,9 +122,8 @@ router.post(
         role: 'student',
         emailVerified: true,
       });
-      const session = await authService.createSessionForUser(user);
-      setAuthCookies(res, session.accessToken, session.refreshToken, session.refreshExpiresAt);
-      res.status(201).json({ user: session.user, accessToken: session.accessToken });
+      const session = await authService.createSessionForUser(await usersRepo.findByUsername(username));
+      sendSession(res, session, 201);
     } catch (err) {
       next(err);
     }
@@ -163,9 +141,8 @@ router.post('/telegram', async (req, res, next) => {
       return res.status(401).json({ error: { code: 'INVALID_TELEGRAM_AUTH', message: 'Invalid Telegram auth' } });
     }
 
-    const session = await createTelegramSession(req.body);
-    setAuthCookies(res, session.accessToken, session.refreshToken, session.refreshExpiresAt);
-    res.json({ user: session.user, accessToken: session.accessToken });
+    const session = await findOrCreateTelegramUser(req.body);
+    sendSession(res, session);
   } catch (err) {
     next(err);
   }
@@ -180,11 +157,15 @@ router.post('/telegram-miniapp', body('initData').trim().notEmpty(), validate, a
     }
     const profile = verifyTelegramMiniAppInitData(req.body.initData);
     if (!profile?.id) {
-      return res.status(401).json({ error: { code: 'INVALID_TELEGRAM_AUTH', message: 'Invalid Telegram Mini App auth' } });
+      return res.status(401).json({
+        error: {
+          code: 'INVALID_TELEGRAM_AUTH',
+          message: 'Invalid Telegram Mini App auth. Check TELEGRAM_BOT_TOKEN on server.',
+        },
+      });
     }
-    const session = await createTelegramSession(profile);
-    setAuthCookies(res, session.accessToken, session.refreshToken, session.refreshExpiresAt);
-    res.json({ user: session.user, accessToken: session.accessToken });
+    const session = await findOrCreateTelegramUser(profile);
+    sendSession(res, session);
   } catch (err) {
     next(err);
   }
@@ -201,13 +182,12 @@ router.post(
 
 router.post('/refresh', async (req, res, next) => {
   try {
-    const refreshToken = req.cookies?.refresh_token;
+    const refreshToken = req.cookies?.refresh_token || req.body?.refreshToken;
     if (!refreshToken) {
       return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Refresh token required' } });
     }
     const session = await authService.refreshSession(refreshToken);
-    setAuthCookies(res, session.accessToken, session.refreshToken, session.refreshExpiresAt);
-    res.json({ user: session.user, accessToken: session.accessToken });
+    sendSession(res, session);
   } catch (err) {
     next(err);
   }
@@ -215,7 +195,8 @@ router.post('/refresh', async (req, res, next) => {
 
 router.post('/logout', async (req, res, next) => {
   try {
-    await authService.logout(req.cookies?.refresh_token);
+    const refreshToken = req.cookies?.refresh_token || req.body?.refreshToken;
+    await authService.logout(refreshToken);
     clearAuthCookies(res);
     res.json({ ok: true });
   } catch (err) {

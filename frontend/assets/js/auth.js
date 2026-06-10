@@ -1,13 +1,19 @@
 import { apiFetch } from './api.js';
-import { storeAccessToken, clearAccessToken } from './session-token.js';
+import {
+  persistTokens,
+  getAccessToken,
+  getRefreshToken,
+  clearTokens,
+} from './session-token.js';
 
 let currentUser = null;
 
 function persistSession(data) {
   currentUser = data.user;
-  if (data.accessToken) {
-    storeAccessToken(data.accessToken);
-  }
+  persistTokens({
+    accessToken: data.accessToken,
+    refreshToken: data.refreshToken,
+  });
 }
 
 export function getUser() {
@@ -25,6 +31,18 @@ export function clearUser() {
 export async function fetchMe() {
   const data = await apiFetch('/auth/me');
   currentUser = data.user;
+  return currentUser;
+}
+
+export async function refreshSession() {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) return null;
+
+  const data = await apiFetch('/auth/refresh', {
+    method: 'POST',
+    body: JSON.stringify({ refreshToken }),
+  });
+  persistSession(data);
   return currentUser;
 }
 
@@ -73,10 +91,14 @@ export async function forgotPassword(username) {
 
 export async function logout() {
   try {
-    await apiFetch('/auth/logout', { method: 'POST' });
+    const refreshToken = getRefreshToken();
+    await apiFetch('/auth/logout', {
+      method: 'POST',
+      body: JSON.stringify({ refreshToken }),
+    });
   } finally {
     clearUser();
-    clearAccessToken();
+    clearTokens();
   }
 }
 
@@ -84,17 +106,23 @@ export function getDefaultRoute(role) {
   const routes = {
     admin: '#/admin',
     teacher: '#/teacher',
-    student: '#/student',
+    student: '#/profile',
   };
   return routes[role] || '#/login';
 }
 
 export async function initSession() {
   try {
-    return await fetchMe();
+    if (getAccessToken()) {
+      return await fetchMe();
+    }
+    if (getRefreshToken()) {
+      return await refreshSession();
+    }
+    return null;
   } catch {
     clearUser();
-    clearAccessToken();
+    clearTokens();
     return null;
   }
 }

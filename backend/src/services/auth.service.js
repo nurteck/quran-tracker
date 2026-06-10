@@ -14,6 +14,7 @@ function toPublicUser(user) {
     id: user.id,
     username: user.username,
     handle: user.handle,
+    telegramId: user.telegram_id ?? null,
     fullName: user.full_name,
     displayName: user.display_name,
     avatar: user.avatar,

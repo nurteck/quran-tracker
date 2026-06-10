@@ -1,14 +1,23 @@
 import { pool } from '../config/db.js';
 
 const PUBLIC_FIELDS = `
-  id, username, handle, full_name, display_name, avatar, role, language, theme, email_verified, is_active, created_at, updated_at
+  id, username, handle, telegram_id, full_name, display_name, avatar, role, language, theme, email_verified, is_active, created_at, updated_at
 `;
 
 export async function findByUsername(username) {
   const result = await pool.query(
-    `SELECT id, username, handle, password_hash, full_name, display_name, avatar, role, language, theme, email_verified, is_active
+    `SELECT id, username, handle, telegram_id, password_hash, full_name, display_name, avatar, role, language, theme, email_verified, is_active
      FROM users WHERE username = $1`,
     [username]
+  );
+  return result.rows[0] ?? null;
+}
+
+export async function findByTelegramId(telegramId) {
+  const result = await pool.query(
+    `SELECT id, username, handle, telegram_id, password_hash, full_name, display_name, avatar, role, language, theme, email_verified, is_active
+     FROM users WHERE telegram_id = $1`,
+    [telegramId]
   );
   return result.rows[0] ?? null;
 }
@@ -51,12 +60,32 @@ export async function findByHandle(handle) {
   return result.rows[0] ?? null;
 }
 
-export async function create({ username, handle, passwordHash, fullName, displayName, role, avatar, emailVerified = false }) {
+export async function create({
+  username,
+  handle,
+  passwordHash,
+  fullName,
+  displayName,
+  role,
+  avatar,
+  emailVerified = false,
+  telegramId = null,
+}) {
   const { rows } = await pool.query(
-    `INSERT INTO users (username, handle, password_hash, full_name, display_name, role, avatar, email_verified)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    `INSERT INTO users (username, handle, telegram_id, password_hash, full_name, display_name, role, avatar, email_verified)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
      RETURNING ${PUBLIC_FIELDS}`,
-    [username, handle, passwordHash, fullName, displayName ?? fullName, role, avatar ?? null, emailVerified]
+    [
+      username,
+      handle,
+      telegramId,
+      passwordHash,
+      fullName,
+      displayName ?? fullName,
+      role,
+      avatar ?? null,
+      emailVerified,
+    ]
   );
   return rows[0];
 }

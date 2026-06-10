@@ -39,6 +39,8 @@
   "login.telegramRetry": "Retry Telegram sign-in",
   "login.telegramMiniAppHint": "You are already in Telegram. Tap the button again or use login below.",
   "login.telegramInitDataMissing": "Telegram did not provide sign-in data. Open the app through the bot.",
+  "login.telegramOpenInBot": "Open the app through the Telegram bot.",
+  "login.telegramOnlySubtitle": "Telegram-only sign-in. No registration required.",
   "login.or": "OR",
   "login.forgot": "Forgot password?",
   "login.noAccount": "Don't have an account?",

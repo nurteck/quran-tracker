@@ -39,6 +39,8 @@
   "login.telegramRetry": "Telegram аркылуу кирүүнү кайталоо",
   "login.telegramMiniAppHint": "Сиз Telegramдасыз. Баскычты кайра басыңыз же төмөндө логин менен кириңиз.",
   "login.telegramInitDataMissing": "Telegram кирүү маалыматын берген жок. Колдонмону бот аркылуу ачыңыз.",
+  "login.telegramOpenInBot": "Колдонмону Telegram боту аркылуу ачыңыз.",
+  "login.telegramOnlySubtitle": "Кирүү Telegram аркылуу гана. Катталуу керек эмес.",
   "login.or": "ЖЕ",
   "login.forgot": "Сырсөздү унуттуңузбу?",
   "login.noAccount": "Аккаунтуңуз жокпу?",

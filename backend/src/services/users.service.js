@@ -59,7 +59,17 @@ async function getAvailableHandle(preferred, userId = null) {
   }
 }
 
-export async function createUser({ fullName, username, password, role, displayName, avatar, emailVerified, handle }) {
+export async function createUser({
+  fullName,
+  username,
+  password,
+  role,
+  displayName,
+  avatar,
+  emailVerified,
+  handle,
+  telegramId = null,
+}) {
   const passwordHash = await hashPassword(password);
   const finalHandle = await getAvailableHandle(handle || username.split('@')[0] || fullName);
   try {
@@ -72,6 +82,7 @@ export async function createUser({ fullName, username, password, role, displayNa
       role,
       avatar,
       emailVerified,
+      telegramId,
     });
     return toPublicUser(row);
   } catch (err) {

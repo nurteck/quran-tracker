@@ -1,14 +1,7 @@
-import {
-  initSession,
-  getDefaultRoute,
-  loginWithTelegramMiniApp,
-} from './auth.js';
-import { getAccessToken } from './session-token.js';
-import {
-  isTelegramMiniApp,
-  waitForTelegramInitData,
-  prepareTelegramWebApp,
-} from './telegram-env.js';
+import { initSession, getDefaultRoute, getUser } from './auth.js';
+import { getAccessToken, getRefreshToken } from './session-token.js';
+import { isInsideTelegramWebApp } from './telegram-env.js';
+import { authenticateTelegramUser } from './telegram-login.js';
 import { initI18n } from './i18n.js';
 import { initTheme } from './theme.js';
 import { registerRoute, startRouter, navigate } from './router.js';
@@ -29,14 +22,6 @@ import {
   renderProfilePage,
 } from './pages/features.js';
 
-async function tryAutoTelegramLogin() {
-  if (!isTelegramMiniApp()) return null;
-  const initData = await waitForTelegramInitData();
-  if (!initData) return null;
-  prepareTelegramWebApp();
-  return loginWithTelegramMiniApp(initData);
-}
-
 async function applyUserPreferences(user) {
   if (user?.language) await initI18n(user.language);
   if (user?.theme) initTheme(user.theme);
@@ -48,7 +33,7 @@ async function bootstrap() {
   }
 
   initTheme(localStorage.getItem('theme') || 'dark');
-  document.documentElement.classList.toggle('tg-miniapp', isTelegramMiniApp());
+  document.documentElement.classList.toggle('tg-miniapp', isInsideTelegramWebApp());
 
   registerRoute('/login', renderLoginPage, { public: true });
   registerRoute('/admin', renderAdminDashboard, { roles: ['admin'] });
@@ -67,30 +52,32 @@ async function bootstrap() {
 
   await initI18n();
 
-  const hash = window.location.hash;
-  const onLoginRoute = !hash || hash === '#/' || hash === '#' || hash === '#/login';
-
   let user = null;
 
-  if (getAccessToken()) {
+  if (getAccessToken() || getRefreshToken()) {
     user = await initSession();
   }
 
-  if (!user && isTelegramMiniApp()) {
+  if (!user && isInsideTelegramWebApp()) {
     try {
-      user = await tryAutoTelegramLogin();
+      user = await authenticateTelegramUser();
     } catch (err) {
-      console.error('Auto Telegram login failed:', err);
+      console.error('Telegram authentication failed:', err);
     }
   }
 
   if (user) {
     await applyUserPreferences(user);
+    const hash = window.location.hash;
+    const onLoginRoute = !hash || hash === '#/' || hash === '#' || hash === '#/login';
     if (onLoginRoute) {
       navigate(getDefaultRoute(user.role));
     }
-  } else if (!hash || hash === '#/' || hash === '#') {
-    window.location.hash = '#/login';
+  } else {
+    const hash = window.location.hash;
+    if (!hash || hash === '#/' || hash === '#') {
+      window.location.hash = '#/login';
+    }
   }
 
   await startRouter();
@@ -98,6 +85,9 @@ async function bootstrap() {
 
 bootstrap().catch((err) => {
   console.error('App bootstrap failed:', err);
-  document.getElementById('app').innerHTML =
-    '<main class="app-content login-page"><div class="card"><p>Failed to load application.</p><a href="#/login">Login</a></div></main>';
+  const app = document.getElementById('app');
+  if (app) {
+    app.innerHTML =
+      '<main class="app-content login-page"><div class="card"><p>Failed to load application.</p></main>';
+  }
 });

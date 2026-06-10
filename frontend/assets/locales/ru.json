@@ -39,6 +39,8 @@
   "login.telegramRetry": "Повторить вход через Telegram",
   "login.telegramMiniAppHint": "Вы уже в Telegram. Нажмите кнопку ещё раз или войдите логином ниже.",
   "login.telegramInitDataMissing": "Telegram не передал данные для входа. Откройте приложение через бота.",
+  "login.telegramOpenInBot": "Откройте приложение через Telegram-бота.",
+  "login.telegramOnlySubtitle": "Вход только через Telegram. Регистрация не нужна.",
   "login.or": "ИЛИ",
   "login.forgot": "Забыли пароль?",
   "login.noAccount": "Нет аккаунта?",

@@ -1,4 +1,4 @@
-import { getAccessToken, storeAccessToken } from './session-token.js';
+import { getAccessToken, getRefreshToken, storeAccessToken, persistTokens } from './session-token.js';
 
 const API_BASE = '/api/v1';
 
@@ -44,7 +44,12 @@ export async function apiFetch(path, options = {}) {
     ...options,
   });
 
-  if (res.status === 401 && path !== '/auth/login' && path !== '/auth/refresh') {
+  if (
+    res.status === 401 &&
+    path !== '/auth/login' &&
+    path !== '/auth/refresh' &&
+    path !== '/auth/telegram-miniapp'
+  ) {
     const refreshed = await tryRefresh();
     if (refreshed) {
       const retry = await fetch(`${API_BASE}${path}`, {
@@ -62,17 +67,26 @@ export async function apiFetch(path, options = {}) {
 let refreshPromise = null;
 
 async function tryRefresh() {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) return false;
+
   if (!refreshPromise) {
     refreshPromise = fetch(`${API_BASE}/auth/refresh`, {
       method: 'POST',
       credentials: 'include',
       headers: buildHeaders(),
+      body: JSON.stringify({ refreshToken }),
     })
       .then(async (res) => {
         if (!res.ok) return false;
         const data = await res.json().catch(() => null);
-        if (data?.accessToken) storeAccessToken(data.accessToken);
-        return true;
+        if (data?.accessToken) {
+          persistTokens({
+            accessToken: data.accessToken,
+            refreshToken: data.refreshToken || refreshToken,
+          });
+        }
+        return Boolean(data?.accessToken);
       })
       .catch(() => false)
       .finally(() => {
