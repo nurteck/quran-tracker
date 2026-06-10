@@ -13,8 +13,10 @@ import { ApiError } from '../api.js';
 import { showToast } from '../toast.js';
 import {
   isTelegramMiniApp,
-  getTelegramInitData,
+  isInsideTelegramWebApp,
+  waitForTelegramInitData,
   prepareTelegramWebApp,
+  canOpenTelegramBotExternally,
   openTelegramBot,
 } from '../telegram-env.js';
 
@@ -44,8 +46,10 @@ async function mountTelegramWidget(holder, botUsername) {
 }
 
 async function tryTelegramMiniAppLogin(statusEl, button) {
-  const initData = getTelegramInitData();
-  if (!initData) return false;
+  const initData = await waitForTelegramInitData();
+  if (!initData) {
+    throw new ApiError(400, 'TELEGRAM_INIT_DATA_MISSING', t('login.telegramInitDataMissing'));
+  }
 
   if (button) button.disabled = true;
   if (statusEl) {
@@ -72,7 +76,7 @@ function renderAutoLoginShell(app) {
   `;
 }
 
-function renderLoginForm(app, { inMiniApp = false, showTelegramButton = true } = {}) {
+function renderLoginForm(app, { inMiniApp = false, insideTelegram = false, showTelegramButton = true } = {}) {
   app.innerHTML = `
     <div class="login-page">
       <section class="auth-panel">
@@ -86,11 +90,11 @@ function renderLoginForm(app, { inMiniApp = false, showTelegramButton = true } =
             <div class="telegram-login-block">
               <button type="button" id="telegram-login-btn" class="btn btn--telegram btn--block">
                 <span class="telegram-mark" aria-hidden="true">✈</span>
-                <span data-i18n="login.telegram">Continue with Telegram</span>
+                <span data-i18n="${insideTelegram ? 'login.telegramRetry' : 'login.telegram'}">${insideTelegram ? t('login.telegramRetry') : t('login.telegram')}</span>
               </button>
               <p class="telegram-status" id="telegram-status" hidden></p>
-              ${inMiniApp ? '' : '<div id="telegram-widget-slot" class="telegram-widget-holder" aria-live="polite"></div>'}
-              ${inMiniApp ? '' : `<p class="telegram-hint" data-i18n="login.telegramBrowserHint">${t('login.telegramBrowserHint')}</p>`}
+              ${insideTelegram ? '' : '<div id="telegram-widget-slot" class="telegram-widget-holder" aria-live="polite"></div>'}
+              ${insideTelegram ? `<p class="telegram-hint" data-i18n="login.telegramMiniAppHint">${t('login.telegramMiniAppHint')}</p>` : `<p class="telegram-hint" data-i18n="login.telegramBrowserHint">${t('login.telegramBrowserHint')}</p>`}
             </div>
             <div class="auth-divider"><span data-i18n="login.or">OR</span></div>
           ` : ''}
@@ -135,7 +139,7 @@ function renderLoginForm(app, { inMiniApp = false, showTelegramButton = true } =
   `;
 }
 
-function bindLoginForm(app, { inMiniApp = false, botUsername = '' } = {}) {
+function bindLoginForm(app, { insideTelegram = false, botUsername = '' } = {}) {
   const form = app.querySelector('#login-form');
   if (!form) return;
 
@@ -153,12 +157,12 @@ function bindLoginForm(app, { inMiniApp = false, botUsername = '' } = {}) {
           statusEl.textContent = t('login.telegramSigningIn');
         }
 
-        if (getTelegramInitData()) {
+        if (insideTelegram || isInsideTelegramWebApp()) {
           await tryTelegramMiniAppLogin(statusEl, telegramBtn);
           return;
         }
 
-        if (botUsername) {
+        if (botUsername && canOpenTelegramBotExternally()) {
           if (statusEl) statusEl.textContent = t('login.telegramOpening');
           openTelegramBot(botUsername);
           return;
@@ -181,7 +185,7 @@ function bindLoginForm(app, { inMiniApp = false, botUsername = '' } = {}) {
     });
   }
 
-  if (!inMiniApp && botUsername) {
+  if (!insideTelegram && botUsername) {
     mountTelegramWidget(app.querySelector('#telegram-widget-slot'), botUsername);
   }
 
@@ -282,7 +286,7 @@ export async function renderLoginPage(app) {
     return;
   }
 
-  const inMiniApp = isTelegramMiniApp();
+  const insideTelegram = isInsideTelegramWebApp();
   let botUsername = '';
 
   try {
@@ -292,7 +296,7 @@ export async function renderLoginPage(app) {
     botUsername = '';
   }
 
-  if (inMiniApp && getTelegramInitData()) {
+  if (insideTelegram) {
     renderAutoLoginShell(app);
     const statusEl = app.querySelector('#telegram-status');
     try {
@@ -307,6 +311,6 @@ export async function renderLoginPage(app) {
     }
   }
 
-  renderLoginForm(app, { inMiniApp, showTelegramButton: true });
-  bindLoginForm(app, { inMiniApp, botUsername });
+  renderLoginForm(app, { insideTelegram, showTelegramButton: true });
+  bindLoginForm(app, { insideTelegram, botUsername });
 }

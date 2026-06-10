@@ -4,7 +4,11 @@ import {
   loginWithTelegramMiniApp,
 } from './auth.js';
 import { getAccessToken } from './session-token.js';
-import { isTelegramMiniApp, getTelegramInitData, prepareTelegramWebApp } from './telegram-env.js';
+import {
+  isTelegramMiniApp,
+  waitForTelegramInitData,
+  prepareTelegramWebApp,
+} from './telegram-env.js';
 import { initI18n } from './i18n.js';
 import { initTheme } from './theme.js';
 import { registerRoute, startRouter, navigate } from './router.js';
@@ -26,14 +30,11 @@ import {
 } from './pages/features.js';
 
 async function tryAutoTelegramLogin() {
-  if (!isTelegramMiniApp() || !getTelegramInitData()) return null;
+  if (!isTelegramMiniApp()) return null;
+  const initData = await waitForTelegramInitData();
+  if (!initData) return null;
   prepareTelegramWebApp();
-  try {
-    return await loginWithTelegramMiniApp(getTelegramInitData());
-  } catch (err) {
-    console.error('Auto Telegram login failed:', err);
-    return null;
-  }
+  return loginWithTelegramMiniApp(initData);
 }
 
 async function applyUserPreferences(user) {
@@ -76,7 +77,11 @@ async function bootstrap() {
   }
 
   if (!user && isTelegramMiniApp()) {
-    user = await tryAutoTelegramLogin();
+    try {
+      user = await tryAutoTelegramLogin();
+    } catch (err) {
+      console.error('Auto Telegram login failed:', err);
+    }
   }
 
   if (user) {

@@ -8,6 +8,7 @@ import * as authService from '../services/auth.service.js';
 import * as usersService from '../services/users.service.js';
 import * as usersRepo from '../repositories/users.repo.js';
 import { parseDurationToMs } from '../utils/jwt.js';
+import { pool } from '../config/db.js';
 
 const router = Router();
 
@@ -35,6 +36,7 @@ function verifyTelegramMiniAppInitData(initData) {
   const hash = params.get('hash');
   if (!hash) return null;
   params.delete('hash');
+  params.delete('signature');
   const checkString = [...params.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([key, value]) => `${key}=${value}`)
@@ -69,6 +71,10 @@ async function createTelegramSession(profile) {
     });
     user = await usersRepo.findByUsername(username);
   } else {
+    if (!user.is_active) {
+      await pool.query('UPDATE users SET is_active = TRUE, updated_at = NOW() WHERE id = $1', [user.id]);
+      user.is_active = true;
+    }
     await usersService.updateUser(user.id, {
       displayName: name || user.display_name,
       avatar: profile.photo_url || user.avatar,
