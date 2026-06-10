@@ -25,8 +25,9 @@
       document.documentElement.style.backgroundColor = bg;
       document.body.style.backgroundColor = bg;
       var hash = location.hash;
-      if (!hash || hash === '#/' || hash === '#') {
-        location.replace('#/login');
+      var miniAppHashes = { '#/telegram': 1, '#/quran': 1 };
+      if (!hash || hash === '#/' || hash === '#' || miniAppHashes[hash]) {
+        history.replaceState(null, '', '/#/login');
       }
     })();
   </script>

@@ -46,6 +46,10 @@ export async function renderRoute() {
   const matched = matchRoute(path);
 
   if (!matched) {
+    if (path === '/telegram' || path === '/quran') {
+      navigate('#/login');
+      return;
+    }
     app.innerHTML = '<main class="app-content"><p>Page not found</p></main>';
     return;
   }

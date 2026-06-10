@@ -25,10 +25,24 @@ async function applyUserPreferences(user) {
   if (user?.theme) initTheme(user.theme);
 }
 
+const MINI_APP_PATHS = new Set(['/telegram', '/quran']);
+
+function normalizeMiniAppEntry() {
+  const { pathname, hash } = window.location;
+  const miniAppHash = hash === '#/telegram' || hash === '#/quran';
+
+  if (MINI_APP_PATHS.has(pathname) || miniAppHash) {
+    window.history.replaceState(null, '', '/#/login');
+  }
+}
+
 async function bootstrap() {
+  normalizeMiniAppEntry();
   initTheme(localStorage.getItem('theme') || 'dark');
 
   registerRoute('/login', renderLoginPage, { public: true });
+  registerRoute('/telegram', renderLoginPage, { public: true });
+  registerRoute('/quran', renderLoginPage, { public: true });
   registerRoute('/admin', renderAdminDashboard, { roles: ['admin'] });
   registerRoute('/admin/users', renderAdminUsers, { roles: ['admin'] });
   registerRoute('/admin/groups', renderAdminGroups, { roles: ['admin'] });
