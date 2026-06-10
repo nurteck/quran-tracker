@@ -301,8 +301,31 @@ function renderChatContent(groups, messages, error, activeGroupId) {
   `;
 }
 
+let chatPollTimer = null;
+
+function stopChatPolling() {
+  if (chatPollTimer) {
+    clearInterval(chatPollTimer);
+    chatPollTimer = null;
+  }
+}
+
+function startChatPolling(app, activeGroupId) {
+  stopChatPolling();
+  if (!activeGroupId) return;
+
+  chatPollTimer = setInterval(async () => {
+    if (document.hidden || !window.location.hash.includes('/chat')) {
+      stopChatPolling();
+      return;
+    }
+    await renderChatPage(app, activeGroupId, { soft: true, poll: true });
+  }, 12_000);
+}
+
 function bindChatPage(app, activeGroupId) {
   app.querySelector('#chat-group')?.addEventListener('change', (e) => {
+    stopChatPolling();
     renderChatPage(app, e.target.value, { soft: true });
   });
   app.querySelector('#chat-form')?.addEventListener('submit', async (e) => {
@@ -311,35 +334,56 @@ function bindChatPage(app, activeGroupId) {
       method: 'POST',
       body: JSON.stringify({ groupId: activeGroupId, message: e.target.message.value.trim() }),
     });
+    e.target.message.value = '';
     renderChatPage(app, activeGroupId, { soft: true });
   });
+  app.__chatPollCleanup = stopChatPolling;
+  startChatPolling(app, activeGroupId);
 }
 
 export async function renderChatPage(app, selectedGroupIdOrParams = null, options = {}) {
   const selectedGroupId = typeof selectedGroupIdOrParams === 'string' ? selectedGroupIdOrParams : null;
   const soft = options.soft === true;
-  let groups = [];
-  let messages = [];
+  const poll = options.poll === true;
+  let groups = app.__chatGroups || [];
+  let messages = app.__chatMessages || [];
   let error = null;
-  try {
-    const data = await apiFetch('/my-groups');
-    groups = data.groups || [];
-  } catch (err) {
-    error = err.message || t('common.error');
-  }
-  const activeGroupId = selectedGroupId || groups[0]?.id || '';
-  if (activeGroupId && !error) {
+
+  if (!poll) {
     try {
-      const data = await apiFetch(`/chat?groupId=${activeGroupId}`);
-      messages = data.messages || [];
+      const data = await apiFetch('/my-groups');
+      groups = data.groups || [];
+      app.__chatGroups = groups;
     } catch (err) {
       error = err.message || t('common.error');
     }
   }
 
+  const activeGroupId = selectedGroupId || groups[0]?.id || '';
+  if (activeGroupId && !error) {
+    try {
+      const lastMessage = messages[messages.length - 1];
+      const sinceQuery =
+        poll && lastMessage?.created_at
+          ? `&since=${encodeURIComponent(lastMessage.created_at)}`
+          : '';
+      const data = await apiFetch(`/chat?groupId=${activeGroupId}${sinceQuery}`);
+      const incoming = data.messages || [];
+      if (poll && incoming.length) {
+        const known = new Set(messages.map((msg) => msg.id));
+        messages = [...messages, ...incoming.filter((msg) => !known.has(msg.id))];
+      } else if (!poll) {
+        messages = incoming;
+      }
+      app.__chatMessages = messages;
+    } catch (err) {
+      if (!poll) error = err.message || t('common.error');
+    }
+  }
+
   const content = renderChatContent(groups, messages, error, activeGroupId);
   if (soft && patchAppContent(app, content)) {
-    bindChatPage(app, activeGroupId);
+    if (!poll) bindChatPage(app, activeGroupId);
     return;
   }
 

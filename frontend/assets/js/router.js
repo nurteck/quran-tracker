@@ -43,6 +43,11 @@ function matchRoute(path) {
 export async function renderRoute() {
   const app = document.getElementById('app');
   const path = getPath();
+
+  if (path !== '/chat' && app?.__chatPollCleanup) {
+    app.__chatPollCleanup();
+    app.__chatPollCleanup = null;
+  }
   const matched = matchRoute(path);
 
   if (!matched) {

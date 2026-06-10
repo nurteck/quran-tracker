@@ -46,7 +46,7 @@ export async function findAll({ role } = {}) {
     where += ` AND role = $${params.length}`;
   }
   const { rows } = await pool.query(
-    `SELECT ${PUBLIC_FIELDS} FROM users ${where} ORDER BY created_at DESC`,
+    `SELECT ${PUBLIC_FIELDS} FROM users ${where} ORDER BY created_at DESC LIMIT 1000`,
     params
   );
   return rows;

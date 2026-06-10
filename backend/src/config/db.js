@@ -3,8 +3,17 @@ import { env } from './env.js';
 
 const { Pool } = pg;
 
+const useSsl =
+  env.nodeEnv === 'production' ||
+  env.databaseUrl.includes('render.com') ||
+  process.env.PGSSLMODE === 'require';
+
 export const pool = new Pool({
   connectionString: env.databaseUrl,
+  max: env.nodeEnv === 'production' ? 10 : 5,
+  idleTimeoutMillis: 30_000,
+  connectionTimeoutMillis: 5_000,
+  ssl: useSsl ? { rejectUnauthorized: false } : undefined,
 });
 
 export async function testConnection() {

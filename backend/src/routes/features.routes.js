@@ -48,15 +48,41 @@ async function getAccessibleGroups(user) {
 }
 
 async function assertCanUseGroup(user, groupId) {
-  const groups = await getAccessibleGroups(user);
-  const group = groups.find((item) => item.id === groupId);
-  if (!group) {
+  let rows;
+  if (user.role === 'admin') {
+    ({ rows } = await pool.query(
+      `SELECT g.id, g.name, g.teacher_id, u.full_name AS teacher_name
+       FROM groups g
+       LEFT JOIN users u ON u.id = g.teacher_id
+       WHERE g.id = $1`,
+      [groupId]
+    ));
+  } else if (user.role === 'teacher') {
+    ({ rows } = await pool.query(
+      `SELECT g.id, g.name, g.teacher_id, u.full_name AS teacher_name
+       FROM groups g
+       LEFT JOIN users u ON u.id = g.teacher_id
+       WHERE g.id = $1 AND g.teacher_id = $2`,
+      [groupId, user.id]
+    ));
+  } else {
+    ({ rows } = await pool.query(
+      `SELECT g.id, g.name, g.teacher_id, u.full_name AS teacher_name
+       FROM group_members gm
+       JOIN groups g ON g.id = gm.group_id
+       LEFT JOIN users u ON u.id = g.teacher_id
+       WHERE gm.group_id = $1 AND gm.user_id = $2`,
+      [groupId, user.id]
+    ));
+  }
+
+  if (!rows[0]) {
     const err = new Error('Group is not available for this user');
     err.status = 403;
     err.code = 'FORBIDDEN';
     throw err;
   }
-  return group;
+  return rows[0];
 }
 
 router.get('/progress/today', async (req, res, next) => {
@@ -162,6 +188,7 @@ router.get('/ranking', async (_req, res, next) => {
       WHERE u.role = 'student' AND u.is_active = TRUE
       GROUP BY u.id
       ORDER BY points DESC, pages DESC, u.full_name
+      LIMIT 500
     `);
     res.json({ ranking: rows });
   } catch (err) {
@@ -325,25 +352,28 @@ router.post(
       }
 
       const assignmentId = crypto.randomUUID();
-      const created = [];
-      for (const member of members) {
-        const { rows } = await pool.query(
-          `INSERT INTO goals (owner_id, assigned_by, assignment_id, group_id, title, target_pages, target_repetitions, due_date)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-           RETURNING *`,
-          [
-            member.id,
-            req.user.id,
-            assignmentId,
-            req.body.groupId,
-            req.body.title,
-            req.body.targetPages ?? 0,
-            req.body.targetRepetitions ?? 0,
-            req.body.dueDate || null,
-          ]
+      const params = [];
+      const values = members.map((member, index) => {
+        const offset = index * 8;
+        params.push(
+          member.id,
+          req.user.id,
+          assignmentId,
+          req.body.groupId,
+          req.body.title,
+          req.body.targetPages ?? 0,
+          req.body.targetRepetitions ?? 0,
+          req.body.dueDate || null
         );
-        created.push(rows[0]);
-      }
+        return `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6}, $${offset + 7}, $${offset + 8})`;
+      });
+
+      const { rows: created } = await pool.query(
+        `INSERT INTO goals (owner_id, assigned_by, assignment_id, group_id, title, target_pages, target_repetitions, due_date)
+         VALUES ${values.join(', ')}
+         RETURNING *`,
+        params
+      );
       res.status(201).json({ assignmentId, goals: created });
     } catch (err) {
       next(err);
@@ -394,14 +424,21 @@ router.get('/chat', async (req, res, next) => {
     const groupId = req.query.groupId;
     if (!groupId) return res.json({ messages: [] });
     await assertCanUseGroup(req.user, groupId);
-    const { rows } = await pool.query(`
-      SELECT cm.id, cm.message, cm.created_at, u.full_name, u.display_name, u.avatar, u.role
-      FROM chat_messages cm
-      JOIN users u ON u.id = cm.sender_id
-      WHERE cm.group_id = $1 AND u.is_active = TRUE
-      ORDER BY cm.created_at DESC
-      LIMIT 100
-    `, [groupId]);
+    const params = [groupId];
+    let sinceFilter = '';
+    if (req.query.since) {
+      params.push(req.query.since);
+      sinceFilter = ` AND cm.created_at > $${params.length}`;
+    }
+    const { rows } = await pool.query(
+      `SELECT cm.id, cm.message, cm.created_at, u.full_name, u.display_name, u.avatar, u.role
+       FROM chat_messages cm
+       JOIN users u ON u.id = cm.sender_id
+       WHERE cm.group_id = $1 AND u.is_active = TRUE${sinceFilter}
+       ORDER BY cm.created_at DESC
+       LIMIT 100`,
+      params
+    );
     res.json({ messages: rows.reverse() });
   } catch (err) {
     next(err);
