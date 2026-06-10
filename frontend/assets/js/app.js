@@ -1,5 +1,10 @@
-import { initSession, getDefaultRoute } from './auth.js';
+import {
+  initSession,
+  getDefaultRoute,
+  loginWithTelegramMiniApp,
+} from './auth.js';
 import { getAccessToken } from './session-token.js';
+import { isTelegramMiniApp, getTelegramInitData, prepareTelegramWebApp } from './telegram-env.js';
 import { initI18n } from './i18n.js';
 import { initTheme } from './theme.js';
 import { registerRoute, startRouter, navigate } from './router.js';
@@ -20,12 +25,29 @@ import {
   renderProfilePage,
 } from './pages/features.js';
 
+async function tryAutoTelegramLogin() {
+  if (!isTelegramMiniApp() || !getTelegramInitData()) return null;
+  prepareTelegramWebApp();
+  try {
+    return await loginWithTelegramMiniApp(getTelegramInitData());
+  } catch (err) {
+    console.error('Auto Telegram login failed:', err);
+    return null;
+  }
+}
+
+async function applyUserPreferences(user) {
+  if (user?.language) await initI18n(user.language);
+  if (user?.theme) initTheme(user.theme);
+}
+
 async function bootstrap() {
   if (window.location.pathname === '/telegram') {
     window.history.replaceState(null, '', '/#/login');
   }
 
   initTheme(localStorage.getItem('theme') || 'dark');
+  document.documentElement.classList.toggle('tg-miniapp', isTelegramMiniApp());
 
   registerRoute('/login', renderLoginPage, { public: true });
   registerRoute('/admin', renderAdminDashboard, { roles: ['admin'] });
@@ -45,27 +67,25 @@ async function bootstrap() {
   await initI18n();
 
   const hash = window.location.hash;
-  if (!hash || hash === '#/' || hash === '#') {
-    window.location.hash = '#/login';
-  }
+  const onLoginRoute = !hash || hash === '#/' || hash === '#' || hash === '#/login';
+
+  let user = null;
 
   if (getAccessToken()) {
-    const user = await initSession();
-    if (user?.language) await initI18n(user.language);
-    if (user?.theme) initTheme(user.theme);
-    if (user && (hash === '#/login' || !hash || hash === '#/' || hash === '#')) {
+    user = await initSession();
+  }
+
+  if (!user && isTelegramMiniApp()) {
+    user = await tryAutoTelegramLogin();
+  }
+
+  if (user) {
+    await applyUserPreferences(user);
+    if (onLoginRoute) {
       navigate(getDefaultRoute(user.role));
     }
-  } else {
-    initSession().then(async (user) => {
-      if (!user) return;
-      if (user.language) await initI18n(user.language);
-      if (user.theme) initTheme(user.theme);
-      const current = window.location.hash;
-      if (current === '#/login' || !current || current === '#/' || current === '#') {
-        navigate(getDefaultRoute(user.role));
-      }
-    });
+  } else if (!hash || hash === '#/' || hash === '#') {
+    window.location.hash = '#/login';
   }
 
   await startRouter();

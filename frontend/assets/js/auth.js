@@ -94,6 +94,7 @@ export async function initSession() {
     return await fetchMe();
   } catch {
     clearUser();
+    clearAccessToken();
     return null;
   }
 }

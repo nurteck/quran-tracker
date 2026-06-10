@@ -34,6 +34,7 @@
   "login.telegramMiniAppError": "Could not sign in through Telegram Mini App. Check bot settings.",
   "login.telegramSigningIn": "Signing in with Telegram…",
   "login.telegramMiniAppFallback": "Automatic sign-in failed. Use username and password below.",
+  "login.telegramBrowserHint": "For automatic sign-in, open the app through the Telegram bot.",
   "login.or": "OR",
   "login.forgot": "Forgot password?",
   "login.noAccount": "Don't have an account?",

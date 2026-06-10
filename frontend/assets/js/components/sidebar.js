@@ -82,17 +82,17 @@ export function renderSidebar(activePath) {
 
 export function renderBottomNav(activePath) {
   const user = getUser();
-  const links = getLinks(user?.role).slice(0, 5);
+  const links = getLinks(user?.role);
 
   const items = links
     .map(
       (link) => `
-      <a href="${link.path}" class="bottom-nav__link${activePath === link.path.replace('#', '') ? ' bottom-nav__link--active' : ''}">
+      <a href="${link.path}" class="bottom-nav__link${activePath === link.path.replace('#', '') ? ' bottom-nav__link--active' : ''}" title="${t(link.labelKey)}">
         <span class="bottom-nav__icon" aria-hidden="true">${link.icon}</span>
-        <span data-i18n="${link.labelKey}">${t(link.labelKey)}</span>
+        <span class="bottom-nav__label" data-i18n="${link.labelKey}">${t(link.labelKey)}</span>
       </a>`
     )
     .join('');
 
-  return `<nav class="bottom-nav" aria-label="Navigation">${items}</nav>`;
+  return `<nav class="bottom-nav" aria-label="Navigation"><div class="bottom-nav__scroll">${items}</div></nav>`;
 }

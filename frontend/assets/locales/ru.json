@@ -34,6 +34,7 @@
   "login.telegramMiniAppError": "Не удалось войти через Telegram Mini App. Проверьте настройки бота.",
   "login.telegramSigningIn": "Вход через Telegram…",
   "login.telegramMiniAppFallback": "Автовход не сработал. Войдите логином и паролем ниже.",
+  "login.telegramBrowserHint": "Для автоматического входа откройте приложение через бота в Telegram.",
   "login.or": "ИЛИ",
   "login.forgot": "Забыли пароль?",
   "login.noAccount": "Нет аккаунта?",
