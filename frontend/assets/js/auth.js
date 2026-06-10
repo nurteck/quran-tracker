@@ -64,24 +64,6 @@ export async function register(fullName, username, password) {
   return currentUser;
 }
 
-export async function loginWithTelegram(payload) {
-  const data = await apiFetch('/auth/telegram', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
-  persistSession(data);
-  return currentUser;
-}
-
-export async function loginWithTelegramMiniApp(initData) {
-  const data = await apiFetch('/auth/telegram-miniapp', {
-    method: 'POST',
-    body: JSON.stringify({ initData }),
-  });
-  persistSession(data);
-  return currentUser;
-}
-
 export async function forgotPassword(username) {
   return apiFetch('/auth/forgot-password', {
     method: 'POST',
@@ -106,7 +88,7 @@ export function getDefaultRoute(role) {
   const routes = {
     admin: '#/admin',
     teacher: '#/teacher',
-    student: '#/profile',
+    student: '#/student',
   };
   return routes[role] || '#/login';
 }

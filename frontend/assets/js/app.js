@@ -1,7 +1,5 @@
-import { initSession, getDefaultRoute, getUser } from './auth.js';
+import { initSession, getDefaultRoute } from './auth.js';
 import { getAccessToken, getRefreshToken } from './session-token.js';
-import { isInsideTelegramWebApp } from './telegram-env.js';
-import { authenticateTelegramUser } from './telegram-login.js';
 import { initI18n } from './i18n.js';
 import { initTheme } from './theme.js';
 import { registerRoute, startRouter, navigate } from './router.js';
@@ -28,12 +26,7 @@ async function applyUserPreferences(user) {
 }
 
 async function bootstrap() {
-  if (window.location.pathname === '/telegram') {
-    window.history.replaceState(null, '', '/#/login');
-  }
-
   initTheme(localStorage.getItem('theme') || 'dark');
-  document.documentElement.classList.toggle('tg-miniapp', isInsideTelegramWebApp());
 
   registerRoute('/login', renderLoginPage, { public: true });
   registerRoute('/admin', renderAdminDashboard, { roles: ['admin'] });
@@ -53,31 +46,20 @@ async function bootstrap() {
   await initI18n();
 
   let user = null;
-
   if (getAccessToken() || getRefreshToken()) {
     user = await initSession();
   }
 
-  if (!user && isInsideTelegramWebApp()) {
-    try {
-      user = await authenticateTelegramUser();
-    } catch (err) {
-      console.error('Telegram authentication failed:', err);
-    }
-  }
+  const hash = window.location.hash;
+  const onLoginRoute = !hash || hash === '#/' || hash === '#' || hash === '#/login';
 
   if (user) {
     await applyUserPreferences(user);
-    const hash = window.location.hash;
-    const onLoginRoute = !hash || hash === '#/' || hash === '#' || hash === '#/login';
     if (onLoginRoute) {
       navigate(getDefaultRoute(user.role));
     }
-  } else {
-    const hash = window.location.hash;
-    if (!hash || hash === '#/' || hash === '#') {
-      window.location.hash = '#/login';
-    }
+  } else if (onLoginRoute) {
+    window.location.hash = '#/login';
   }
 
   await startRouter();
@@ -85,9 +67,6 @@ async function bootstrap() {
 
 bootstrap().catch((err) => {
   console.error('App bootstrap failed:', err);
-  const app = document.getElementById('app');
-  if (app) {
-    app.innerHTML =
-      '<main class="app-content login-page"><div class="card"><p>Failed to load application.</p></main>';
-  }
+  document.getElementById('app').innerHTML =
+    '<main class="app-content login-page"><div class="card"><p>Failed to load application.</p><a href="#/login">Login</a></div></main>';
 });
